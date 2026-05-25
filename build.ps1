@@ -15,25 +15,13 @@ if (-not $ver) {
 }
 Write-Ok "PyInstaller $ver encontrado"
 
-# 1. Gerar logo.ico
-Write-Step "Gerando logo.ico a partir de Logo.png"
-$tmpPy = [System.IO.Path]::GetTempFileName() + ".py"
-@'
-from PIL import Image, ImageDraw
-import sys
-try:
-    banner = Image.open("Logo.png").convert("RGBA")
-    icon = banner.crop((0, 0, 210, 210))
-    icon.save("logo.ico", format="ICO", sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])
-    print("logo.ico gerado.")
-except Exception as e:
-    print("Erro: " + str(e))
-    sys.exit(1)
-'@ | Out-File -FilePath $tmpPy -Encoding utf8
-python $tmpPy
-Remove-Item $tmpPy -ErrorAction SilentlyContinue
-if ($LASTEXITCODE -ne 0) { Write-Fail "Falha ao gerar logo.ico."; exit 1 }
-Write-Ok "logo.ico gerado"
+# 1. Verificar logo.ico (engrenagem laranja, gerada manualmente via icon_source.png)
+Write-Step "Verificando logo.ico"
+if (-not (Test-Path "logo.ico")) {
+    Write-Fail "logo.ico nao encontrado. Gere-o rodando: python -c ""from PIL import Image; img=Image.open('icon_source.png'); img.save('logo.ico',format='ICO',sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])"" "
+    exit 1
+}
+Write-Ok "logo.ico encontrado"
 
 # 2. Limpar builds anteriores
 Write-Step "Limpando builds anteriores"
