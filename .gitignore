@@ -1,9 +1,9 @@
-# Pastas de dados gerados pelo app
+# Pastas de dados gerados pelo app (nunca commitar)
 */entrada/
 */backup/
 */resultados/
 
-# PyInstaller build artifacts
+# Build PyInstaller
 build/
 dist/
 *.spec.bak
@@ -11,11 +11,11 @@ dist/
 # Inno Setup output
 installer/Output/
 
-# Icone e logo gerados
+# Ícone gerado
 logo.ico
 Logo_original.png
 
-# Python bytecode
+# Python
 __pycache__/
 *.pyc
 *.pyo

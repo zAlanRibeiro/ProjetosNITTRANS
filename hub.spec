@@ -8,6 +8,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ('Logo.png', '.'),
+        ('logo.ico', '.'),
     ],
     hiddenimports=[
         # Interface
