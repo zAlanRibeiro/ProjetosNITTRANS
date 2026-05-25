@@ -1,0 +1,31 @@
+# Pastas de dados gerados pelo app
+*/entrada/
+*/backup/
+*/resultados/
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec.bak
+
+# Inno Setup output
+installer/Output/
+
+# Icone e logo gerados
+logo.ico
+Logo_original.png
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ambientes virtuais
+venv/
+.venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
