@@ -1,0 +1,7 @@
+customtkinter
+Pillow
+geopy
+pdfplumber
+pandas
+tqdm
+openpyxl
