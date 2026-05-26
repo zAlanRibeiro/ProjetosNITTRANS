@@ -9,6 +9,7 @@ from LatitudeLongitude.enderecos import processar_sistema_pastas as _fn_endereco
 from LimpezaArquivo.limpeza import processar_pasta as _fn_limpeza
 from OrganizadorTxtDetran.decifradorTxt import processar_arquivos as _fn_detran
 from PdfExcelMultas.pdfDeferidoIndeferido import rodar_automacao as _fn_pdf
+from ProcessosAbertos.processosAbertos import rodar_processos_abertos as _fn_processos
 
 # Mapeamento: nome do script → função principal do módulo
 FERRAMENTAS = {
@@ -16,6 +17,7 @@ FERRAMENTAS = {
     "limpeza.py":               _fn_limpeza,
     "decifradorTxt.py":         _fn_detran,
     "pdfDeferidoIndeferido.py": _fn_pdf,
+    "processosAbertos.py":      _fn_processos,
 }
 
 

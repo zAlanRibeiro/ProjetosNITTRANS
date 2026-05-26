@@ -35,6 +35,7 @@ a = Analysis(
         'LimpezaArquivo.limpeza',
         'OrganizadorTxtDetran.decifradorTxt',
         'PdfExcelMultas.pdfDeferidoIndeferido',
+        'ProcessosAbertos.processosAbertos',
     ],
     hookspath=[],
     hooksconfig={},
@@ -63,6 +64,7 @@ exe = EXE(
     upx=True,
     console=False,          # sem janela de console (app GUI)
     icon='logo.ico',        # gerado automaticamente pelo build.ps1
+    version='version_info.txt',
 )
 
 coll = COLLECT(

@@ -13,7 +13,7 @@ class HubApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.geometry("450x600")
+        self.geometry("450x680")
         self.title("Hub de Ferramentas - Gestão e Modernização")
         ctk.set_appearance_mode("dark")
 
@@ -69,6 +69,7 @@ class HubApp(ctk.CTk):
         self._criar_botao_ferramenta("2. Limpeza de Arquivos", "LimpezaArquivo", "limpeza.py")
         self._criar_botao_ferramenta("3. Organizador TXT Detran", "OrganizadorTxtDetran", "decifradorTxt.py")
         self._criar_botao_ferramenta("4. PDF e Excel Multas", "PdfExcelMultas", "pdfDeferidoIndeferido.py")
+        self._criar_botao_ferramenta("5. Processos Abertos", "ProcessosAbertos", "processosAbertos.py")
 
         self.frame_status = ctk.CTkFrame(self, fg_color="transparent")
         self.frame_status.pack(side="bottom", pady=20, fill="x")
