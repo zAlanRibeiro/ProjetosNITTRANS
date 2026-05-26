@@ -53,6 +53,11 @@ Source: "..\dist\HubNITTRANS\*"; \
   DestDir: "{app}"; \
   Flags: ignoreversion recursesubdirs createallsubdirs
 
+; Cache de geocodificação pré-preenchido — não sobrescreve se o usuário já tem um
+Source: "..\LatitudeLongitude\cache_enderecos.json"; \
+  DestDir: "{app}\LatitudeLongitude"; \
+  Flags: ignoreversion onlyifdoesntexist
+
 [Icons]
 ; Menu Iniciar
 Name: "{group}\{#AppName}";         Filename: "{app}\{#AppExeName}"
@@ -75,3 +80,4 @@ Type: filesandordirs; Name: "{app}\LatitudeLongitude"
 Type: filesandordirs; Name: "{app}\LimpezaArquivo"
 Type: filesandordirs; Name: "{app}\OrganizadorTxtDetran"
 Type: filesandordirs; Name: "{app}\PdfExcelMultas"
+Type: filesandordirs; Name: "{app}\ProcessosAbertos"
