@@ -10,6 +10,7 @@ from LimpezaArquivo.limpeza import processar_pasta as _fn_limpeza
 from OrganizadorTxtDetran.decifradorTxt import processar_arquivos as _fn_detran
 from PdfExcelMultas.pdfDeferidoIndeferido import rodar_automacao as _fn_pdf
 from ProcessosAbertos.processosAbertos import rodar_processos_abertos as _fn_processos
+from DetranLimpo.detranLimpo import rodar_detran_limpo as _fn_detran_limpo
 
 # Mapeamento: nome do script → função principal do módulo
 FERRAMENTAS = {
@@ -18,6 +19,7 @@ FERRAMENTAS = {
     "decifradorTxt.py":         _fn_detran,
     "pdfDeferidoIndeferido.py": _fn_pdf,
     "processosAbertos.py":      _fn_processos,
+    "detranLimpo.py":           _fn_detran_limpo,
 }
 
 

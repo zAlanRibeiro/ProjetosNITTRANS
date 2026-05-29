@@ -5,7 +5,7 @@
 ; ============================================================
 
 #define AppName    "Hub de Ferramentas NITTRANS"
-#define AppVersion "1.0"
+#define AppVersion "2.0"
 #define AppExeName "HubNITTRANS.exe"
 #define AppId      "NITTRANS-HUB-FERRAMENTAS-2025"
 
@@ -81,3 +81,4 @@ Type: filesandordirs; Name: "{app}\LimpezaArquivo"
 Type: filesandordirs; Name: "{app}\OrganizadorTxtDetran"
 Type: filesandordirs; Name: "{app}\PdfExcelMultas"
 Type: filesandordirs; Name: "{app}\ProcessosAbertos"
+Type: filesandordirs; Name: "{app}\DetranLimpo"
