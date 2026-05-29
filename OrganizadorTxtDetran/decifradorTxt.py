@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import sys
 import pandas as pd
@@ -19,6 +20,24 @@ def formatar_hora(h):
     if len(h) == 6 and h.isdigit():
         return f"{h[0:2]}:{h[2:4]}:{h[4:6]}"
     return h
+
+
+def separar_logradouro(texto):
+    texto = texto.strip()
+    # Remove sufixos de posição do final: "OP.", "OP. OP.", "OPOSTO", "LADO OP."
+    limpo = re.sub(r'[\s,]+(LADO\s+)?OP\.?(\s+OP\.?)*\s*$', '', texto, flags=re.IGNORECASE).strip()
+    limpo = re.sub(r'\s+OPOSTO\s*$', '', limpo, flags=re.IGNORECASE).strip()
+    # Faixa: "151 AO 251"
+    m = re.match(r'^(.*?),?\s*(\d+\s+[Aa][Oo]\s+\d+)\s*$', limpo)
+    if m:
+        nome = re.sub(r'\s+N\.?\s*$', '', m.group(1).strip(), flags=re.IGNORECASE)
+        return nome, m.group(2).strip()
+    # Número simples com sufixo opcional: "123", "45A", "12-B"
+    m = re.match(r'^(.*?),?\s*(\d+[\w-]*)\s*$', limpo)
+    if m:
+        nome = re.sub(r'\s+N\.?\s*$', '', m.group(1).strip(), flags=re.IGNORECASE)
+        return nome, m.group(2).strip()
+    return texto, ''
 
 
 def formatar_valor(v):
@@ -96,6 +115,7 @@ def processar_arquivos():
                     "Cód. do Município":                    linha[345:348].strip(),
                     "Município":                            linha[348:388].strip(),
                     "Descrição do Município do Endereço":   linha[388:].strip(),
+                    "Descrição do Município do Endereço (sem número)": separar_logradouro(linha[388:])[0],
                 }
                 dados_normalizados.append(registro)
 

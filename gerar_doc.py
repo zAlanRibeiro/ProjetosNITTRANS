@@ -131,20 +131,20 @@ r.font.name = 'Calibri'
 
 p2 = doc.add_paragraph()
 p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-r2 = p2.add_run('Documentacao Tecnica')
+r2 = p2.add_run('Documentação Técnica')
 r2.font.size = Pt(16)
 r2.font.color.rgb = AZUL_ESCURO
 r2.font.name = 'Calibri'
 
 doc.add_paragraph()
 for chave, valor in [
-    ('Sistema',    'Hub de Ferramentas - Gestao e Modernizacao'),
-    ('Orgao',      'NITTRANS - Niteroi Transporte S.A. / Prefeitura de Niteroi/RJ'),
-    ('Versao',     '1.0'),
-    ('Tecnologia', 'Python 3.13 - CustomTkinter - PyInstaller - Inno Setup'),
-    ('Ano',        '2026'),
+    ('Sistema',       'Hub de Ferramentas — Gestão e Modernização'),
+    ('Órgão',         'NITTRANS — Niterói Transporte S.A. / Prefeitura de Niterói/RJ'),
+    ('Versão',        '2.0'),
+    ('Tecnologia',    'Python 3.13 · CustomTkinter · PyInstaller · Inno Setup · cryptography'),
+    ('Ano',           '2026'),
     ('Desenvolvedor', 'Alan Doyle Costa Ribeiro'),
-    ('Cargo',      'Estagiario - Gestao e Modernizacao'),
+    ('Cargo',         'Estagiário — Gestão e Modernização'),
 ]:
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -159,19 +159,35 @@ for chave, valor in [
 doc.add_page_break()
 
 # =============================================================
-# 1. VISAO GERAL
+# 1. VISÃO GERAL
 # =============================================================
-add_heading('1. Visao Geral', 1)
+add_heading('1. Visão Geral', 1)
 add_para(
-    'O Hub de Ferramentas NITTRANS e uma aplicacao desktop Windows com interface grafica '
-    '(modo escuro) que centraliza cinco automacoes de dados utilizadas internamente pela '
-    'equipe tecnica. Cada ferramenta opera de forma independente: o usuario seleciona o '
+    'O Hub de Ferramentas NITTRANS é uma aplicação desktop Windows com interface gráfica '
+    '(modo escuro) que centraliza sete automações de dados utilizadas internamente pela '
+    'equipe técnica. Cada ferramenta opera de forma independente: o usuário seleciona o '
     'arquivo de entrada, a ferramenta processa e gera o resultado, que pode ser exportado '
     'para qualquer destino.'
 )
 add_para(
-    'A aplicacao nao exige instalacao de Python nem de nenhuma dependencia: tudo esta '
-    'empacotado no instalador .exe, que instala sem necessidade de privilegios de administrador.'
+    'A aplicação não exige instalação de Python nem de nenhuma dependência: tudo está '
+    'empacotado no instalador .exe, que instala sem necessidade de privilégios de administrador. '
+    'Ao passar o mouse sobre qualquer botão, uma dica resumida descreve o que aquela ferramenta faz.'
+)
+
+add_heading('Ferramentas disponíveis', 2)
+add_table(
+    ['Nº', 'Nome', 'Função resumida'],
+    [
+        ['1', 'Latitude e Longitude',     'Converte coordenadas em endereços via OpenStreetMap'],
+        ['2', 'Limpeza de Arquivos',      'Corrige encoding e padroniza logradouros em planilhas'],
+        ['3', 'Organizador TXT Detran',   'Converte .txt posicional do DETRAN em Excel estruturado'],
+        ['4', 'Organizador Detran Limpo', 'Limpa coluna de endereço removendo números e sufixos'],
+        ['5', 'PDF e Excel Multas',       'Extrai processos deferidos/indeferidos de PDFs GAIDE'],
+        ['6', 'Processos Abertos',        'Lê relatórios PDF de Processos Abertos e exporta para Excel'],
+        ['7', 'Criptografar Arquivos',    'Criptografa arquivos com AES-256 e gera HTML autocontido'],
+    ],
+    col_widths=[1, 5, 9]
 )
 
 # =============================================================
@@ -181,35 +197,42 @@ add_heading('2. Estrutura de Pastas', 1)
 for linha in [
     'ProjetosNITTRANS/',
     '|-- main.py                       <- Ponto de entrada',
-    '|-- interface.py                  <- Interface grafica (CustomTkinter)',
+    '|-- interface.py                  <- Interface gráfica (CustomTkinter)',
     '|-- processamento.py              <- Orquestrador (threads e pastas)',
-    '|-- hub.spec                      <- Configuracao do PyInstaller',
-    '|-- version_info.txt              <- Metadados de autoria do .exe',
+    '|-- hub.spec                      <- Configuração do PyInstaller',
+    '|-- version_info.txt              <- Metadados de autoria do .exe (v2.0)',
     '|-- build.ps1                     <- Script de build automatizado',
     '|-- Logo.png / logo.ico           <- Identidade visual',
     '|',
     '|-- LatitudeLongitude/',
     '|   |-- enderecos.py              <- Ferramenta 1',
-    '|   |-- cache_enderecos.json      <- Cache de geocodificacao (pre-preenchido)',
+    '|   |-- cache_enderecos.json      <- Cache de geocodificação (pré-preenchido)',
     '|-- LimpezaArquivo/',
     '|   |-- limpeza.py               <- Ferramenta 2',
     '|-- OrganizadorTxtDetran/',
     '|   |-- decifradorTxt.py         <- Ferramenta 3',
+    '|-- DetranLimpo/',
+    '|   |-- detranLimpo.py           <- Ferramenta 4',
     '|-- PdfExcelMultas/',
-    '|   |-- pdfDeferidoIndeferido.py <- Ferramenta 4',
+    '|   |-- pdfDeferidoIndeferido.py <- Ferramenta 5',
     '|-- ProcessosAbertos/',
-    '    |-- processosAbertos.py      <- Ferramenta 5',
+    '|   |-- processosAbertos.py      <- Ferramenta 6',
+    '|-- Criptografia/',
+    '    |-- criptografia.py          <- Ferramenta 7 (ponto de entrada standalone)',
+    '    |-- gui.py                   <- Interface gráfica do criptografador',
+    '    |-- crypto.py                <- Lógica de criptografia (AES-256-GCM)',
+    '    |-- html_builder.py          <- Gerador do HTML autocontido',
 ]:
     add_code(linha)
 
 doc.add_paragraph()
-add_para('Cada ferramenta cria automaticamente tres subpastas ao ser executada:')
+add_para('Cada ferramenta (1–6) cria automaticamente três subpastas ao ser executada:')
 add_table(
-    ['Subpasta', 'Funcao'],
+    ['Subpasta', 'Função'],
     [
-        ['entrada/',     'Arquivo enviado pelo usuario para processar'],
-        ['backup/',      'Copia do arquivo original apos o processamento'],
-        ['resultados/',  'Arquivo(s) gerado(s) pela ferramenta'],
+        ['entrada/',    'Arquivo enviado pelo usuário para processar'],
+        ['backup/',     'Cópia do arquivo original após o processamento'],
+        ['resultados/', 'Arquivo(s) gerado(s) pela ferramenta'],
     ],
     col_widths=[4, 11]
 )
@@ -217,18 +240,19 @@ add_table(
 # =============================================================
 # 3. FLUXO DE USO
 # =============================================================
-add_heading('3. Fluxo de Uso', 1)
+add_heading('3. Fluxo de Uso (Ferramentas 1–6)', 1)
 for passo in [
-    '1. Usuario clica em uma das ferramentas na tela principal.',
-    '2. Um dialogo de selecao de arquivo abre.',
-    '3. O arquivo escolhido e copiado para a pasta entrada/ da ferramenta.',
-    '4. O processamento roda em uma thread separada (interface nao trava).',
-    '5. Ao finalizar, aparece o botao "Exportar Arquivo Pronto".',
-    '6. O usuario salva o resultado onde quiser via dialogo de salvamento.',
-    '7. O botao de pasta ao lado de cada ferramenta abre o Explorer na pasta da ferramenta.',
+    '1. Usuário clica em uma das ferramentas na tela principal.',
+    '2. Um diálogo de seleção de arquivo abre.',
+    '3. O arquivo escolhido é copiado para a pasta entrada/ da ferramenta.',
+    '4. O processamento roda em uma thread separada (interface não trava).',
+    '5. Ao finalizar, aparece o botão "Exportar Arquivo Pronto".',
+    '6. O usuário salva o resultado onde quiser via diálogo de salvamento.',
+    '7. O botão de pasta ao lado de cada ferramenta abre o Explorer na pasta da ferramenta.',
 ]:
     add_bullet(passo)
 doc.add_paragraph()
+add_para('Ferramenta 7 (Criptografar): abre uma janela própria dentro do hub com interface dedicada.')
 
 # =============================================================
 # 4. FERRAMENTAS
@@ -238,40 +262,36 @@ add_heading('4. Ferramentas', 1)
 # --- 4.1 ---
 add_heading('4.1  Latitude e Longitude', 2, LARANJA)
 add_para(parts=[('Arquivo: ', True), ('LatitudeLongitude/enderecos.py', False)])
-
 add_heading('O que faz', 3)
 add_para(
-    'Recebe uma planilha com coordenadas geograficas (latitude/longitude) e enriquece '
-    'cada linha com o endereco completo correspondente (rua, bairro, numero, cidade, '
-    'CEP, estado) via geocodificacao reversa usando a API publica OpenStreetMap/Nominatim.'
+    'Recebe uma planilha com coordenadas geográficas (latitude/longitude) e enriquece '
+    'cada linha com o endereço completo correspondente (rua, bairro, número, cidade, '
+    'CEP, estado) via geocodificação reversa usando a API pública OpenStreetMap/Nominatim.'
 )
-
 add_heading('Arquivos aceitos', 3)
 add_table(
-    ['Formato', 'Extensao'],
+    ['Formato', 'Extensão'],
     [
         ['Planilha Excel', '.xlsx, .xls'],
-        ['CSV com separador ponto-e-virgula', '.csv'],
+        ['CSV com separador ponto-e-vírgula', '.csv'],
     ],
     col_widths=[8, 7]
 )
-
 add_heading('Como processa', 3)
-add_bullet('Identifica as colunas de latitude e longitude por nome (latitude, lat, y, longitude, lon, lng, x) ou por faixa de valores numericos quando os nomes nao sao padrao.')
-add_bullet('Usa a API Nominatim (OpenStreetMap) com RateLimiter (minimo 1,2 s entre requisicoes) para respeitar os limites da API gratuita.')
-add_bullet('Mantem cache local (cache_enderecos.json) — coordenadas ja consultadas nao sao buscadas novamente, poupando tempo em reprocessamentos. O instalador ja inclui um cache pre-preenchido com enderecos ja conhecidos.')
-add_bullet('O cache e salvo a cada 10 novas entradas para evitar perda em caso de interrupcao.')
-add_bullet('Coordenadas sem endereco encontrado sao registradas em coordenadas_nao_encontradas.txt.')
-
-add_heading('Colunas adicionadas ao arquivo de saida', 3)
+add_bullet('Identifica colunas de latitude e longitude por nome (latitude, lat, y, longitude, lon, lng, x) ou por faixa de valores.')
+add_bullet('Usa a API Nominatim com RateLimiter (mínimo 1,2 s entre requisições) para respeitar os limites da API gratuita.')
+add_bullet('Mantém cache local (cache_enderecos.json) — coordenadas já consultadas não são buscadas novamente. O instalador inclui cache pré-preenchido.')
+add_bullet('O cache é salvo a cada 10 novas entradas para evitar perda em caso de interrupção.')
+add_bullet('Coordenadas sem endereço encontrado são registradas em coordenadas_nao_encontradas.txt.')
+add_heading('Colunas adicionadas', 3)
 add_table(
-    ['Coluna', 'Conteudo'],
+    ['Coluna', 'Conteúdo'],
     [
         ['Endereco_Rua',  'Nome da rua/logradouro'],
         ['Bairro',        'Bairro'],
-        ['Numero_Imovel', 'Numero do imovel'],
-        ['Cidade',        'Municipio'],
-        ['CEP',           'Codigo postal'],
+        ['Numero_Imovel', 'Número do imóvel'],
+        ['Cidade',        'Município'],
+        ['CEP',           'Código postal'],
         ['Estado',        'Estado'],
     ],
     col_widths=[5, 10]
@@ -280,40 +300,26 @@ add_table(
 # --- 4.2 ---
 add_heading('4.2  Limpeza de Arquivos', 2, LARANJA)
 add_para(parts=[('Arquivo: ', True), ('LimpezaArquivo/limpeza.py', False)])
-
 add_heading('O que faz', 3)
 add_para(
-    'Recebe planilhas de cadastro ou fiscalizacao e realiza limpeza profunda dos dados: '
+    'Recebe planilhas de cadastro ou fiscalização e realiza limpeza profunda dos dados: '
     'corrige texto mal codificado (mojibake), padroniza nomes de logradouros, normaliza '
-    'capitalizacao, valida enderecos via geocodificacao e gera relatorio de todas as '
-    'alteracoes realizadas.'
+    'capitalização, valida endereços via geocodificação e gera relatório de todas as '
+    'alterações realizadas.'
 )
-
-add_heading('Arquivos aceitos', 3)
-add_table(
-    ['Formato', 'Extensao'],
-    [
-        ['Planilha Excel', '.xlsx, .xls'],
-        ['CSV (separadores ; ou ,)', '.csv'],
-    ],
-    col_widths=[8, 7]
-)
-
 add_heading('Como processa', 3)
-add_bullet('Tenta automaticamente multiplas combinacoes de encoding (utf-8, cp1252, latin-1) e separador ate encontrar leitura valida (minimo 15 colunas).')
+add_bullet('Tenta automaticamente múltiplas combinações de encoding (utf-8, cp1252, latin-1) e separador até encontrar leitura válida (mínimo 15 colunas).')
 add_bullet('Calcula hash SHA-256 do arquivo original para rastreabilidade.')
-add_bullet('Corrige mojibake por re-decodificacao latin1-utf-8, com ate 5 passagens iterativas.')
-add_bullet('Aplica capitalizacao inteligente nas colunas de Titulo (pos. 1), Endereco (pos. 6) e Bairro (pos. 14) — artigos "da", "de", "do" ficam em minusculo.')
-add_bullet('Expande abreviacoes: R. -> Rua, Av. -> Av., Estr. -> Estrada, Tv. -> Travessa, Pca. -> Praca.')
-add_bullet('Valida endereco e bairro via Nominatim para obter o nome oficial do logradouro em Niteroi/RJ.')
-add_bullet('Detecta corrupcao residual ao final, alertando colunas com padroes suspeitos.')
-
-add_heading('Saidas geradas', 3)
+add_bullet('Corrige mojibake por re-decodificação latin1→utf-8, com até 5 passagens iterativas.')
+add_bullet('Aplica capitalização inteligente — artigos "da", "de", "do" ficam em minúsculo.')
+add_bullet('Expande abreviações: R. → Rua, Av. → Av., Estr. → Estrada, Tv. → Travessa, Pça. → Praça.')
+add_bullet('Valida endereço e bairro via Nominatim para obter o nome oficial do logradouro em Niterói/RJ.')
+add_heading('Saídas geradas', 3)
 add_table(
-    ['Arquivo', 'Conteudo'],
+    ['Arquivo', 'Conteúdo'],
     [
         ['{nome}_LIMPO.xlsx',     'Planilha com todos os dados corrigidos'],
-        ['{nome}_RELATORIO.xlsx', 'Registro de cada alteracao: campo, valor original e corrigido'],
+        ['{nome}_RELATORIO.xlsx', 'Registro de cada alteração: campo, valor original e corrigido'],
     ],
     col_widths=[6, 9]
 )
@@ -321,181 +327,207 @@ add_table(
 # --- 4.3 ---
 add_heading('4.3  Organizador TXT Detran', 2, LARANJA)
 add_para(parts=[('Arquivo: ', True), ('OrganizadorTxtDetran/decifradorTxt.py', False)])
-
 add_heading('O que faz', 3)
 add_para(
-    'Converte arquivos .txt de posicao fixa exportados pelo sistema do DETRAN/RJ '
-    'em planilhas Excel estruturadas e legiveis, extraindo cada campo pela sua '
-    'posicao exata no layout do arquivo.'
+    'Converte arquivos .txt de posição fixa exportados pelo sistema do DETRAN/RJ '
+    'em planilhas Excel estruturadas e legíveis, extraindo cada campo pela sua '
+    'posição exata no layout do arquivo. Cria também uma coluna "Descrição sem Número" '
+    'com o logradouro limpo logo após a coluna original.'
 )
-
-add_heading('Arquivos aceitos', 3)
+add_heading('Layout — campos por posição de caractere', 3)
 add_table(
-    ['Formato', 'Extensao'],
-    [['Arquivo de texto posicional (layout fixo)', '.txt']],
-    col_widths=[10, 5]
-)
-
-add_heading('Layout do arquivo — campos por posicao de caractere', 3)
-add_table(
-    ['Posicao', 'Campo'],
+    ['Posição', 'Campo'],
     [
-        ['0 - 6',     'Codigo do Orgao Atuador'],
-        ['6 - 9',     'Codigo da Infracao'],
-        ['11 - 71',   'Descricao da Infracao'],
-        ['71 - 91',   'Tipo de Enquadramento'],
-        ['91 - 103',  'Auto'],
-        ['103 - 111', 'Data (AAAAMMDD -> DD/MM/AAAA)'],
-        ['111 - 117', 'Hora (HHMMSS -> HH:MM:SS)'],
-        ['158 - 167', 'Valor da Infracao (centavos -> R$ 0,00)'],
-        ['167 - 174', 'Situacao'],
-        ['174 - 181', 'Placa do Veiculo'],
-        ['181 - 192', 'Renavam'],
-        ['192 - 217', 'Marca/Modelo'],
-        ['219 - 233', 'CPF/Identidade'],
-        ['233 - 293', 'Nome do Infrator'],
-        ['293 - 337', 'Logradouro'],
-        ['337 - 345', 'CEP'],
-        ['345 - 388', 'Municipio'],
+        ['0 – 6',     'Código do Órgão Atuador'],
+        ['6 – 9',     'Código da Infração'],
+        ['11 – 71',   'Descrição da Infração'],
+        ['71 – 91',   'Tipo de Enquadramento'],
+        ['91 – 103',  'Auto'],
+        ['103 – 111', 'Data (AAAAMMDD → DD/MM/AAAA)'],
+        ['111 – 117', 'Hora (HHMMSS → HH:MM:SS)'],
+        ['158 – 167', 'Valor da Infração (centavos → R$ 0,00)'],
+        ['174 – 181', 'Placa do Veículo'],
+        ['233 – 293', 'Nome do Infrator'],
+        ['293 – 337', 'Logradouro'],
+        ['388 +',     'Descrição do Município do Endereço + coluna extra sem número'],
     ],
     col_widths=[4, 11]
 )
 
-add_heading('Saida gerada', 3)
-add_table(
-    ['Arquivo', 'Conteudo'],
-    [['{nome}_normalizado.xlsx', 'Planilha com todos os campos em colunas separadas']],
-    col_widths=[6, 9]
-)
-
 # --- 4.4 ---
-add_heading('4.4  PDF e Excel Multas', 2, LARANJA)
-add_para(parts=[('Arquivo: ', True), ('PdfExcelMultas/pdfDeferidoIndeferido.py', False)])
-
+add_heading('4.4  Organizador Detran Limpo', 2, LARANJA)
+add_para(parts=[('Arquivo: ', True), ('DetranLimpo/detranLimpo.py', False)])
 add_heading('O que faz', 3)
 add_para(
-    'Extrai dados de processos julgados (Deferido/Indeferido) a partir de relatorios PDF '
-    'gerados pelo sistema GAIDE/NITEROI e consolida todos os registros em uma unica '
-    'planilha Excel.'
+    'Recebe planilhas Excel que contenham uma coluna de endereço (por exemplo, a saída '
+    'do Organizador TXT Detran ou arquivos exportados diretamente do sistema GAIDE) e '
+    'cria ou atualiza uma coluna "Rua" com o logradouro limpo, sem número e sem '
+    'referências de cruzamento ou sufixos de posição.'
 )
-
 add_heading('Arquivos aceitos', 3)
 add_table(
-    ['Formato', 'Extensao'],
-    [['Relatorio PDF do sistema GAIDE', '.pdf']],
-    col_widths=[10, 5]
+    ['Formato', 'Extensão'],
+    [
+        ['Planilha Excel', '.xlsx, .xls'],
+        ['CSV', '.csv'],
+    ],
+    col_widths=[8, 7]
 )
-
-add_heading('Desafios do PDF e como sao tratados', 3)
-add_bullet('CNPJ quebrado em duas linhas (ex: 30.069.314/0001- + 01): reunificado antes da extracao.')
-add_bullet('Placa isolada abaixo do nome do proprietario: fundida a linha correta.')
-add_bullet('Sobrenome do relator em linha separada: lista configuravel de sobrenomes conhecidos.')
-add_bullet('Texto de infracao espalhado por multiplas linhas: concatenado ate o proximo marcador.')
-add_bullet('Linhas de cabecalho e rodape (emissao, pagina, usuario, DETRAN) descartadas por regex.')
-
-add_heading('Como processa', 3)
-add_bullet('Le todas as paginas do PDF com pdfplumber.')
-add_bullet('Aplica as correcoes de quebra de linha em sequencia.')
-add_bullet('Particiona o texto em blocos por registro — cada bloco inicia na linha onde aparece uma placa (formato AAA0A00 ou AAA0000).')
-add_bullet('Extrai de cada bloco: CPF/CNPJ, Proprietario, Placa, Processo, Datas, Resultado e Relator.')
-add_bullet('Propaga CPF/CNPJ para registros consecutivos do mesmo proprietario sem o campo explicito.')
-add_bullet('Processa todos os PDFs da pasta entrada/ e consolida em um unico arquivo.')
-
-add_heading('Saida gerada', 3)
+add_heading('Regras de limpeza', 3)
+add_bullet('Remove número do final do endereço: "AV. BRASIL 341" → "AV. BRASIL".')
+add_bullet('Remove "N" abreviado de número: "RUA BARÃO DO AMAZONAS N 340" → "RUA BARÃO DO AMAZONAS".')
+add_bullet('Remove sufixos de posição: OP., OP. OP., OPOSTO, LADO OP.')
+add_bullet('Remove referências de cruzamento: "COM RUA SÃO PEDRO", "C/ R. BARÃO...", "CRUZAMENTO COM...".')
+add_bullet('Reconhece faixas de números: "151 AO 251" e remove o intervalo inteiro.')
+add_heading('Comportamento da coluna Rua', 3)
 add_table(
-    ['Arquivo', 'Colunas'],
-    [['relatorio_processos_{data_hora}.xlsx',
-      'Arquivo, Pagina, CPF/CNPJ, Proprietario, Placa, Processo, '
-      'Data de Abertura, Data Resultado, Resultado, Relator']],
+    ['Situação', 'Ação'],
+    [
+        ['Coluna "Rua" não existe',            'Cria a coluna logo após o campo de endereço'],
+        ['Coluna "Rua" existe (qualquer valor)', 'Sempre sobrescreve com o valor limpo do endereço'],
+    ],
     col_widths=[6, 9]
 )
 
 # --- 4.5 ---
-add_heading('4.5  Processos Abertos', 2, LARANJA)
-add_para(parts=[('Arquivo: ', True), ('ProcessosAbertos/processosAbertos.py', False)])
-
+add_heading('4.5  PDF e Excel Multas', 2, LARANJA)
+add_para(parts=[('Arquivo: ', True), ('PdfExcelMultas/pdfDeferidoIndeferido.py', False)])
 add_heading('O que faz', 3)
 add_para(
-    'Le o relatorio "Relatorio de Processos Abertos - 1a. Instancia" exportado pelo '
+    'Extrai dados de processos julgados (Deferido/Indeferido) a partir de relatórios PDF '
+    'gerados pelo sistema GAIDE/NITERÓI e consolida todos os registros em uma única planilha Excel.'
+)
+add_heading('Desafios do PDF e como são tratados', 3)
+add_bullet('CNPJ quebrado em duas linhas: reunificado antes da extração.')
+add_bullet('Placa isolada abaixo do nome do proprietário: fundida à linha correta.')
+add_bullet('Sobrenome do relator em linha separada: lista configurável de sobrenomes conhecidos.')
+add_bullet('Texto de infração espalhado por múltiplas linhas: concatenado até o próximo marcador.')
+add_bullet('Linhas de cabeçalho e rodapé descartadas por regex.')
+add_heading('Saída gerada', 3)
+add_table(
+    ['Arquivo', 'Colunas'],
+    [['relatorio_processos_{data_hora}.xlsx',
+      'Arquivo, Página, CPF/CNPJ, Proprietário, Placa, Processo, '
+      'Data de Abertura, Data Resultado, Resultado, Relator']],
+    col_widths=[6, 9]
+)
+
+# --- 4.6 ---
+add_heading('4.6  Processos Abertos', 2, LARANJA)
+add_para(parts=[('Arquivo: ', True), ('ProcessosAbertos/processosAbertos.py', False)])
+add_heading('O que faz', 3)
+add_para(
+    'Lê o relatório "Relatório de Processos Abertos — 1ª Instância" exportado pelo '
     'sistema GAIDE/DETRAN em formato PDF e extrai todos os registros organizados por '
     'data de abertura, gerando uma planilha Excel estruturada.'
 )
-
-add_heading('Arquivos aceitos', 3)
+add_heading('Colunas do arquivo de saída', 3)
 add_table(
-    ['Formato', 'Extensao'],
-    [['Relatorio PDF - Processos Abertos 1a. Instancia (GAIDE/DETRAN)', '.pdf']],
-    col_widths=[10, 5]
-)
-
-add_heading('Estrutura do relatorio PDF', 3)
-add_para(
-    'O relatorio agrupa os registros por data de abertura. Cada secao comeca com '
-    '"DATA DE ABERTURA: DD/MM/AAAA" seguida de linhas no formato:'
-)
-add_code('SEQ   REQUERIMENTO   N. PROCESSO   N. AUTO   LOGIN')
-add_para('')
-
-add_heading('Como processa', 3)
-add_bullet('Le todas as paginas do PDF com pdfplumber e extrai o texto linha a linha.')
-add_bullet('Detecta a data de abertura de cada secao pela expressao "DATA DE ABERTURA: DD/MM/AAAA".')
-add_bullet('Filtra linhas de cabecalho, rodape, paginacao e ruido por regex antes de tentar extrair dados.')
-add_bullet('Cada linha de dado e validada pelo padrao: numero sequencial, tipo de requerimento (0P/1P/2C etc.), numero do processo, numero do auto (N...) e login do usuario.')
-add_bullet('Move os PDFs processados para a pasta backup/ apos a extracao.')
-
-add_heading('Colunas do arquivo de saida', 3)
-add_table(
-    ['Coluna', 'Conteudo'],
+    ['Coluna', 'Conteúdo'],
     [
         ['Data de Abertura', 'Data no formato DD/MM/AAAA'],
-        ['SEQ',             'Numero sequencial do registro'],
-        ['Requerimento',    'Tipo: 0P, 1P, 2C, etc.'],
-        ['N. Processo',     'Numero do processo administrativo'],
-        ['N. Auto',         'Numero do auto de infracao'],
-        ['Login',           'Login do usuario responsavel'],
-        ['Arquivo',         'Nome do PDF de origem'],
+        ['SEQ',              'Número sequencial do registro'],
+        ['Requerimento',     'Tipo: 0P, 1P, 2C, etc.'],
+        ['Nº Processo',      'Número do processo administrativo'],
+        ['Nº Auto',          'Número do auto de infração'],
+        ['Login',            'Login do usuário responsável'],
+        ['Arquivo',          'Nome do PDF de origem'],
     ],
     col_widths=[4, 11]
 )
 
-add_heading('Saida gerada', 3)
+# --- 4.7 ---
+add_heading('4.7  Criptografar Arquivos', 2, LARANJA)
+add_para(parts=[('Arquivos: ', True), ('Criptografia/crypto.py, html_builder.py, gui.py', False)])
+add_heading('O que faz', 3)
+add_para(
+    'Criptografa qualquer tipo de arquivo (Excel, PDF, Word, TXT) com uma senha definida '
+    'pelo usuário e gera um arquivo HTML autocontido. O destinatário abre o HTML em '
+    'qualquer navegador, digita a senha e o arquivo original é baixado já descriptografado '
+    'diretamente na máquina dele — sem passar por nenhum servidor.'
+)
+
+add_heading('Fluxo completo', 3)
+for passo in [
+    '1. Usuário seleciona o arquivo e digita uma senha.',
+    '2. O app gera um arquivo .html com os dados cifrados embutidos.',
+    '3. O .html é enviado ao destinatário (e-mail, WhatsApp, pendrive etc.).',
+    '4. O destinatário abre o .html no navegador e digita a senha.',
+    '5. O arquivo original é baixado diretamente pelo navegador — sem servidor intermediário.',
+]:
+    add_bullet(passo)
+
+add_heading('Camadas de segurança', 3)
 add_table(
-    ['Arquivo', 'Conteudo'],
-    [['processos_abertos_{data_hora}.xlsx', 'Planilha com todos os registros de todos os PDFs consolidados']],
-    col_widths=[6, 9]
+    ['Camada', 'Técnica', 'Por que protege'],
+    [
+        ['Derivação de senha',
+         'PBKDF2-SHA256\n480.000 iterações',
+         'Torna ataques de força bruta extremamente lentos — testar milhões de senhas por segundo se torna inviável'],
+        ['Sal aleatório',
+         '16 bytes aleatórios por arquivo',
+         'Mesmo cifrando o mesmo arquivo com a mesma senha duas vezes, os resultados são completamente diferentes. Elimina ataques por tabela pré-calculada (rainbow table)'],
+        ['Cifra simétrica',
+         'AES-256-GCM',
+         'Padrão usado por governos e bancos. O modo GCM autentica os dados: qualquer alteração no arquivo cifrado é detectada imediatamente'],
+        ['Processamento local',
+         'Web Crypto API (nativa do navegador)',
+         'A descriptografia ocorre 100% no navegador do destinatário. O arquivo nunca trafega pela rede em aberto'],
+    ],
+    col_widths=[3.5, 4, 7.5]
+)
+
+add_heading('Proteção contra tentativas repetidas', 3)
+add_para(
+    'O HTML gerado possui bloqueio progressivo embutido: cada senha errada dobra o tempo '
+    'de espera até a próxima tentativa (2 s, 4 s, 8 s…). Após 10 tentativas erradas, '
+    'o arquivo é bloqueado permanentemente naquele navegador. O estado é salvo no '
+    'localStorage, portanto fechar e reabrir o navegador não reseta o contador.'
+)
+
+add_heading('Limitações conhecidas', 3)
+add_bullet('Senha fraca anula a proteção — a força está na senha escolhida pelo usuário.')
+add_bullet('O bloqueio por tentativas é por navegador, não por arquivo. Um atacante com acesso ao .html pode tentá-lo em outro navegador.')
+add_bullet('Máquina comprometida com malware pode capturar o arquivo após a descriptografia.')
+add_para(
+    'Para uso interno da NITTRANS — compartilhamento de planilhas e documentos por '
+    'e-mail ou aplicativos de mensagem — o nível de segurança oferecido é equivalente '
+    'ao usado em HTTPS e em cofres de senha profissionais.'
 )
 
 # =============================================================
-# 5. DEPENDENCIAS
+# 5. DEPENDÊNCIAS
 # =============================================================
-add_heading('5. Dependencias e Bibliotecas', 1)
+add_heading('5. Dependências e Bibliotecas', 1)
 add_table(
     ['Biblioteca', 'Uso'],
     [
-        ['customtkinter', 'Interface grafica dark mode'],
+        ['customtkinter', 'Interface gráfica dark mode'],
         ['Pillow (PIL)',   'Carregamento e processamento de imagens'],
-        ['pandas',        'Leitura, manipulacao e exportacao de planilhas'],
+        ['pandas',        'Leitura, manipulação e exportação de planilhas'],
         ['openpyxl',      'Escrita de arquivos .xlsx'],
         ['xlrd',          'Leitura de arquivos .xls (formato legado)'],
-        ['geopy',         'Geocodificacao via Nominatim (OpenStreetMap)'],
-        ['pdfplumber',    'Extracao de texto de PDFs (Ferramentas 4 e 5)'],
+        ['geopy',         'Geocodificação via Nominatim (OpenStreetMap)'],
+        ['pdfplumber',    'Extração de texto de PDFs (Ferramentas 5 e 6)'],
+        ['cryptography',  'AES-256-GCM e PBKDF2-SHA256 (Ferramenta 7)'],
         ['tqdm',          'Barra de progresso (ativa apenas no terminal)'],
+        ['unicodedata',   'Normalização de texto e correção de encoding (stdlib)'],
     ],
-    col_widths=[5, 10]
+    col_widths=[4, 11]
 )
 
 # =============================================================
-# 6. BUILD E DISTRIBUICAO
+# 6. BUILD E DISTRIBUIÇÃO
 # =============================================================
-add_heading('6. Build e Distribuicao', 1)
+add_heading('6. Build e Distribuição', 1)
 add_para('O script build.ps1 automatiza todo o processo de empacotamento:')
 for passo in [
-    '1. Verifica se PyInstaller esta instalado.',
+    '1. Verifica se PyInstaller está instalado.',
     '2. Verifica se logo.ico (engrenagem laranja) existe.',
     '3. Remove builds anteriores (build/ e dist/).',
-    '4. Empacota com PyInstaller — gera dist/HubNITTRANS/. Os metadados de autoria (version_info.txt) sao embutidos diretamente no .exe e ficam visiveis em Propriedades > Detalhes no Windows Explorer.',
-    '5. Compila o instalador com Inno Setup — gera installer/Output/Setup_HubNITTRANS_v1.0.exe.',
-    '6. O instalador inclui o cache de geocodificacao pre-preenchido (cache_enderecos.json). Em instalacoes novas o cache e copiado automaticamente; em reinstalacoes o cache acumulado do usuario e preservado.',
+    '4. Empacota com PyInstaller — gera dist/HubNITTRANS/. Os metadados de autoria definidos em version_info.txt são embutidos no .exe e ficam visíveis em Propriedades → Detalhes no Windows Explorer.',
+    '5. Compila o instalador com Inno Setup — gera installer/Output/Setup_HubNITTRANS_v2.0.exe.',
+    '6. O instalador inclui o cache de geocodificação pré-preenchido. Em instalações novas o cache é copiado; em reinstalações o cache acumulado do usuário é preservado.',
 ]:
     add_bullet(passo)
 
@@ -503,15 +535,17 @@ doc.add_paragraph()
 add_table(
     ['Item', 'Detalhe'],
     [
-        ['Tamanho do instalador',      '~44 MB'],
-        ['Diretorio de instalacao',    '%LOCALAPPDATA%\\Programs\\HubNITTRANS\\'],
-        ['Requer administrador?',      'Nao'],
-        ['Atalho na area de trabalho', 'Opcional (marcado por padrao no instalador)'],
-        ['Metadados de autoria',       'Visiveis em Propriedades > Detalhes do HubNITTRANS.exe'],
-        ['Desinstalacao',              'Configuracoes > Aplicativos > Hub de Ferramentas NITTRANS'],
+        ['Versão atual',               '2.0'],
+        ['Tamanho do instalador',      '~46 MB'],
+        ['Diretório de instalação',    '%LOCALAPPDATA%\\Programs\\HubNITTRANS\\'],
+        ['Requer administrador?',      'Não'],
+        ['Atalho na área de trabalho', 'Opcional (marcado por padrão no instalador)'],
+        ['Metadados de autoria',       'Visíveis em Propriedades → Detalhes do HubNITTRANS.exe'],
+        ['Tooltips',                   'Descrição resumida aparece ao passar o mouse sobre cada botão'],
+        ['Desinstalação',              'Configurações → Aplicativos → Hub de Ferramentas NITTRANS'],
     ],
-    col_widths=[6, 9]
+    col_widths=[5, 10]
 )
 
-doc.save('Documentacao_HubNITTRANS.docx')
+doc.save('Documentacao_HubNITTRANS_v2.docx')
 print('Arquivo salvo: Documentacao_HubNITTRANS.docx')
