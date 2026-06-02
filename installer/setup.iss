@@ -5,7 +5,7 @@
 ; ============================================================
 
 #define AppName    "Hub de Ferramentas NITTRANS"
-#define AppVersion "2.0"
+#define AppVersion "2.1"
 #define AppExeName "HubNITTRANS.exe"
 #define AppId      "NITTRANS-HUB-FERRAMENTAS-2025"
 
@@ -57,6 +57,11 @@ Source: "..\dist\HubNITTRANS\*"; \
 Source: "..\LatitudeLongitude\cache_enderecos.json"; \
   DestDir: "{app}\LatitudeLongitude"; \
   Flags: ignoreversion onlyifdoesntexist
+
+; Cache de ruas do Detran Limpo — não sobrescreve cache acumulado pelo usuário
+Source: "..\DetranLimpo\cache_ruas.json"; \
+  DestDir: "{app}\DetranLimpo"; \
+  Flags: ignoreversion onlyifdoesntexist skipifsourcedoesntexist
 
 [Icons]
 ; Menu Iniciar

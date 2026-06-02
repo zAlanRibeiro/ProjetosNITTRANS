@@ -74,11 +74,37 @@ class GerenciadorProcessos:
             self.callback_erro(str(e))
 
     def _executar_ferramenta(self, pasta, nome_do_arquivo, caminho_da_pasta):
-        dir_original = os.getcwd()
+        dir_original     = os.getcwd()
+        pasta_resultados = os.path.join(caminho_da_pasta, "resultados")
+
+        # Snapshot antes de processar
+        arquivos_antes = set()
+        if os.path.exists(pasta_resultados):
+            arquivos_antes = {
+                f for f in os.listdir(pasta_resultados)
+                if not f.startswith("progresso")
+            }
+
         try:
             os.chdir(caminho_da_pasta)
             FERRAMENTAS[nome_do_arquivo]()
-            self.callback_sucesso(pasta)
+
+            # Verifica se algum arquivo novo foi gerado
+            arquivos_depois = set()
+            if os.path.exists(pasta_resultados):
+                arquivos_depois = {
+                    f for f in os.listdir(pasta_resultados)
+                    if not f.startswith("progresso")
+                }
+
+            novos = arquivos_depois - arquivos_antes
+            if novos:
+                self.callback_sucesso(pasta)
+            else:
+                self.callback_erro(
+                    "Nenhum dado válido encontrado.\n"
+                    "Verifique se o arquivo está no formato correto para esta ferramenta."
+                )
         except Exception as e:
             self.callback_erro(str(e))
         finally:
@@ -86,27 +112,38 @@ class GerenciadorProcessos:
             self._em_execucao = False
 
     def exportar_resultado(self, pasta):
-        caminho_da_pasta = os.path.join(obter_diretorio_base(), pasta)
+        caminho_da_pasta  = os.path.join(obter_diretorio_base(), pasta)
+        pasta_resultados  = os.path.join(caminho_da_pasta, "resultados")
 
-        arquivo_gerado = filedialog.askopenfilename(
-            initialdir=caminho_da_pasta,
-            title="1. Selecione o arquivo GERADO pela ferramenta",
-        )
+        # Localiza automaticamente o arquivo mais recente em resultados/
+        arquivo_gerado = None
+        if os.path.exists(pasta_resultados):
+            candidatos = [
+                os.path.join(pasta_resultados, f)
+                for f in os.listdir(pasta_resultados)
+                if os.path.isfile(os.path.join(pasta_resultados, f))
+                and not f.startswith("progresso")
+            ]
+            if candidatos:
+                arquivo_gerado = max(candidatos, key=os.path.getmtime)
 
         if not arquivo_gerado:
+            self.callback_erro("Nenhum arquivo encontrado em resultados/.")
             return False
 
         nome_original = os.path.basename(arquivo_gerado)
+        ext = os.path.splitext(nome_original)[1]
         destino_salvar = filedialog.asksaveasfilename(
-            title="2. Escolha onde salvar o resultado",
+            title="Salvar resultado",
             initialfile=nome_original,
-            defaultextension=".*"
+            defaultextension=ext,
+            filetypes=[(f"Arquivo {ext.upper()}", f"*{ext}"), ("Todos", "*.*")]
         )
 
         if destino_salvar:
             try:
                 shutil.copy(arquivo_gerado, destino_salvar)
-                self.callback_status("✅ Exportado com Sucesso!", cor="#28a745")
+                self.callback_status("Exportado com sucesso!", cor="#059669")
                 return True
             except Exception as e:
                 self.callback_erro(f"Erro ao exportar: {str(e)}")
