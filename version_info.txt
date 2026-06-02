@@ -1,7 +1,7 @@
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(2, 0, 0, 0),
-    prodvers=(2, 0, 0, 0),
+    filevers=(2, 1, 0, 0),
+    prodvers=(2, 1, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -14,10 +14,10 @@ VSVersionInfo(
       StringTable('040904B0', [
         StringStruct('CompanyName',      'NITTRANS'),
         StringStruct('FileDescription',  'Hub de Ferramentas NITTRANS'),
-        StringStruct('FileVersion',      '2.0.0'),
+        StringStruct('FileVersion',      '2.1.0'),
         StringStruct('ProductName',      'Hub de Ferramentas NITTRANS'),
-        StringStruct('ProductVersion',   '2.0.0'),
-        StringStruct('LegalCopyright',   'Desenvolvedor: Alan Doyle Costa Ribeiro — Estagiario, Gestao e Modernizacao, NITTRANS, 2025'),
+        StringStruct('ProductVersion',   '2.1.0'),
+        StringStruct('LegalCopyright',   'Alan Doyle Costa Ribeiro — Estagiario, Gestao e Modernizacao, NITTRANS, 2025'),
         StringStruct('OriginalFilename', 'HubNITTRANS.exe'),
         StringStruct('InternalName',     'HubNITTRANS'),
       ])
