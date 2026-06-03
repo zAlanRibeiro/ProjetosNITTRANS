@@ -1,4 +1,5 @@
 import os
+import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -13,11 +14,19 @@ except ImportError:
     from crypto import descriptografar_enc
     from html_builder import gerar_html
 
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
-
-LARANJA       = "#F97316"
-LARANJA_HOVER = "#C2610F"
+# ── Paleta idêntica ao Hub ──────────────────────────────────────────────────
+_FUNDO    = "#EEF2F7"
+_AZUL     = "#1B5299"
+_AZUL_SUB = "#DBEAFE"
+_LARANJA  = "#F97316"
+_LAR_HOV  = "#EA580C"
+_BRANCO   = "#FFFFFF"
+_BORDA    = "#E2E8F0"
+_TEXTO    = "#1A202C"
+_TEXTO_S  = "#64748B"
+_SUCESSO  = "#059669"
+_ERRO     = "#DC2626"
+_FONTE    = "Segoe UI"
 
 TIPOS_ABRIR = [
     ("Todos os arquivos suportados", "*.txt *.xlsx *.xls *.docx *.doc *.enc"),
@@ -33,13 +42,32 @@ class _AppMixin:
     """Lógica e UI compartilhadas — funciona em CTk e CTkToplevel."""
 
     def _init_common(self):
-        self.title("Criptografador de Arquivos")
-        self.geometry("500x390")
+        self.title("Criptografar Arquivos — NITTRANS")
+        self.geometry("480x430")
         self.resizable(False, False)
+        self.configure(fg_color=_FUNDO)
+
+        # CTkToplevel reinicia internamente ~200ms após criar — define o ícone antes e depois
+        self.after(50,  self._aplicar_icone)
+        self.after(400, self._aplicar_icone)
+
         self._caminho = ""
-        self._after_progresso: str | None = None
+        self._after_progresso = None
         self._build_ui()
         self._centralizar()
+
+    def _aplicar_icone(self):
+        try:
+            if getattr(sys, 'frozen', False):
+                # Rodando como .exe — logo.ico está em _internal/ ao lado do executável
+                ico = os.path.join(os.path.dirname(sys.executable), "_internal", "logo.ico")
+            else:
+                # Rodando direto do Python — logo.ico está na raiz do projeto
+                ico = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "logo.ico")
+            if os.path.exists(ico):
+                self.iconbitmap(ico)
+        except Exception:
+            pass
 
     def _centralizar(self):
         self.update_idletasks()
@@ -50,81 +78,100 @@ class _AppMixin:
     def _build_ui(self):
         self.grid_columnconfigure(0, weight=1)
 
-        # ── Cabeçalho ──────────────────────────────────────────────────────────
-        ctk.CTkLabel(self, text="Criptografador de Arquivos",
-                     font=ctk.CTkFont(size=20, weight="bold")).grid(
-            row=0, column=0, padx=24, pady=(24, 2))
+        # ── Card azul (header + body) ─────────────────────────────────────────
+        card = ctk.CTkFrame(self, fg_color=_AZUL, corner_radius=10,
+                            border_width=1, border_color="#1A4F8A")
+        card.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
+        card.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(self,
-                     text="O HTML gerado abre em qualquer navegador — sem instalação.",
-                     font=ctk.CTkFont(size=12), text_color="gray60").grid(
-            row=1, column=0, padx=24, pady=(0, 16))
+        # Header
+        hdr = ctk.CTkFrame(card, fg_color="transparent")
+        hdr.grid(row=0, column=0, padx=20, pady=(14, 12), sticky="w")
 
-        # ── Card: Arquivo ──────────────────────────────────────────────────────
-        card_arquivo = ctk.CTkFrame(self)
-        card_arquivo.grid(row=2, column=0, padx=24, pady=(0, 10), sticky="ew")
-        card_arquivo.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(hdr, text="Criptografar Arquivos",
+                     font=(_FONTE, 15, "bold"), text_color="#FFFFFF",
+                     fg_color="transparent").pack(anchor="w")
+        ctk.CTkLabel(hdr, text="Proteja arquivos com senha — HTML autocontido",
+                     font=(_FONTE, 10), text_color=_AZUL_SUB,
+                     fg_color="transparent").pack(anchor="w", pady=(3, 0))
 
-        ctk.CTkLabel(card_arquivo, text="Arquivo",
-                     font=ctk.CTkFont(size=12), text_color="gray70").grid(
-            row=0, column=0, padx=14, pady=(10, 4), sticky="w")
+        # Corpo branco
+        body = ctk.CTkFrame(card, fg_color=_BRANCO, corner_radius=9)
+        body.grid(row=1, column=0, padx=2, pady=(0, 2), sticky="ew")
+        body.grid_columnconfigure(0, weight=1)
 
-        linha_arquivo = ctk.CTkFrame(card_arquivo, fg_color="transparent")
-        linha_arquivo.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
-        linha_arquivo.grid_columnconfigure(0, weight=1)
+        inner = ctk.CTkFrame(body, fg_color="transparent")
+        inner.grid(row=0, column=0, padx=18, pady=16, sticky="ew")
+        inner.grid_columnconfigure(0, weight=1)
 
-        self.entry_arquivo = ctk.CTkEntry(linha_arquivo,
-                                          placeholder_text="Nenhum arquivo selecionado",
-                                          state="disabled")
+        # ── Arquivo ───────────────────────────────────────────────────────────
+        ctk.CTkLabel(inner, text="Arquivo", font=(_FONTE, 11, "bold"),
+                     text_color=_TEXTO, fg_color="transparent").grid(
+            row=0, column=0, sticky="w", pady=(0, 5))
+
+        row_arq = ctk.CTkFrame(inner, fg_color="transparent")
+        row_arq.grid(row=1, column=0, sticky="ew", pady=(0, 14))
+        row_arq.grid_columnconfigure(0, weight=1)
+
+        self.entry_arquivo = ctk.CTkEntry(
+            row_arq, placeholder_text="Nenhum arquivo selecionado",
+            state="disabled", height=36,
+            fg_color=_BRANCO, border_color=_BORDA, text_color=_TEXTO)
         self.entry_arquivo.grid(row=0, column=0, padx=(0, 8), sticky="ew")
 
-        ctk.CTkButton(linha_arquivo, text="Selecionar", width=100,
-                      fg_color=LARANJA, hover_color=LARANJA_HOVER,
+        ctk.CTkButton(row_arq, text="Selecionar", width=105, height=36,
+                      fg_color=_LARANJA, hover_color=_LAR_HOV,
+                      text_color="white", font=(_FONTE, 12, "bold"),
+                      corner_radius=6,
                       command=self._selecionar).grid(row=0, column=1)
 
-        # ── Card: Senha ────────────────────────────────────────────────────────
-        card_senha = ctk.CTkFrame(self)
-        card_senha.grid(row=3, column=0, padx=24, pady=(0, 16), sticky="ew")
-        card_senha.grid_columnconfigure(0, weight=1)
+        # ── Senha ─────────────────────────────────────────────────────────────
+        ctk.CTkLabel(inner, text="Senha de acesso", font=(_FONTE, 11, "bold"),
+                     text_color=_TEXTO, fg_color="transparent").grid(
+            row=2, column=0, sticky="w", pady=(0, 5))
 
-        ctk.CTkLabel(card_senha, text="Senha",
-                     font=ctk.CTkFont(size=12), text_color="gray70").grid(
-            row=0, column=0, padx=14, pady=(10, 4), sticky="w")
-
-        linha_senha = ctk.CTkFrame(card_senha, fg_color="transparent")
-        linha_senha.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
-        linha_senha.grid_columnconfigure(0, weight=1)
+        row_senha = ctk.CTkFrame(inner, fg_color="transparent")
+        row_senha.grid(row=3, column=0, sticky="ew", pady=(0, 16))
+        row_senha.grid_columnconfigure(0, weight=1)
 
         self.var_senha = tk.StringVar()
-        self.entry_senha = ctk.CTkEntry(linha_senha, textvariable=self.var_senha,
-                                        show="●", placeholder_text="Digite a senha")
+        self.entry_senha = ctk.CTkEntry(
+            row_senha, textvariable=self.var_senha,
+            show="●", placeholder_text="Digite a senha", height=36,
+            fg_color=_BRANCO, border_color=_BORDA, text_color=_TEXTO)
         self.entry_senha.grid(row=0, column=0, padx=(0, 8), sticky="ew")
+        self.entry_senha.bind("<Return>", lambda e: self._criptografar())
 
         self.var_mostrar = tk.BooleanVar()
-        ctk.CTkCheckBox(linha_senha, text="Mostrar", variable=self.var_mostrar,
+        ctk.CTkCheckBox(row_senha, text="Mostrar", variable=self.var_mostrar,
                         command=self._toggle_senha, width=90,
-                        fg_color=LARANJA, hover_color=LARANJA_HOVER).grid(row=0, column=1)
+                        fg_color=_LARANJA, hover_color=_LAR_HOV,
+                        text_color=_TEXTO, checkmark_color="white").grid(
+            row=0, column=1)
 
-        # ── Botão de ação ──────────────────────────────────────────────────────
-        ctk.CTkButton(self, text="🔒  Criptografar → HTML",
-                      fg_color=LARANJA, hover_color=LARANJA_HOVER,
+        # ── Botão principal ───────────────────────────────────────────────────
+        ctk.CTkButton(inner, text="🔒   Criptografar → HTML",
+                      fg_color=_LARANJA, hover_color=_LAR_HOV,
+                      text_color="white", height=44, corner_radius=6,
+                      font=(_FONTE, 13, "bold"),
                       command=self._criptografar).grid(
-            row=4, column=0, padx=24, pady=(0, 14), sticky="ew")
+            row=4, column=0, sticky="ew", pady=(0, 10))
 
-        # ── Barra de progresso ─────────────────────────────────────────────────
-        self.progress = ctk.CTkProgressBar(self, mode="determinate",
-                                           progress_color=LARANJA)
-        self.progress.grid(row=5, column=0, padx=24, pady=(0, 8), sticky="ew")
+        # ── Progresso ─────────────────────────────────────────────────────────
+        self.progress = ctk.CTkProgressBar(inner, mode="determinate",
+                                           progress_color=_LARANJA,
+                                           fg_color=_BORDA, height=5, corner_radius=3)
+        self.progress.grid(row=5, column=0, sticky="ew", pady=(0, 8))
         self.progress.set(0)
 
-        # ── Status ─────────────────────────────────────────────────────────────
+        # ── Status ────────────────────────────────────────────────────────────
         self.var_status = tk.StringVar(value="Selecione um arquivo para começar.")
-        ctk.CTkLabel(self, textvariable=self.var_status,
-                     text_color="gray60", wraplength=450,
-                     font=ctk.CTkFont(size=11)).grid(
-            row=6, column=0, padx=24, pady=(0, 20))
+        ctk.CTkLabel(inner, textvariable=self.var_status,
+                     text_color=_TEXTO_S, wraplength=400,
+                     fg_color="transparent",
+                     font=(_FONTE, 11)).grid(row=6, column=0, pady=(0, 2))
 
-    # ── Helpers de progresso ───────────────────────────────────────────────────
+    # ── Progresso ─────────────────────────────────────────────────────────────
 
     def _iniciar_progresso(self):
         self.progress.set(0)
@@ -152,7 +199,7 @@ class _AppMixin:
         self.progress.set(0)
         self.var_status.set(mensagem)
 
-    # ── Helpers de UI ──────────────────────────────────────────────────────────
+    # ── UI helpers ─────────────────────────────────────────────────────────────
 
     def _toggle_senha(self):
         self.entry_senha.configure(show="" if self.var_mostrar.get() else "●")
@@ -171,7 +218,7 @@ class _AppMixin:
             self._set_arquivo(caminho)
             self.var_status.set(f"Arquivo: {os.path.basename(caminho)}")
 
-    def _validar(self) -> tuple[str, str] | None:
+    def _validar(self):
         if not self._caminho:
             messagebox.showwarning("Aviso", "Selecione um arquivo.")
             return None
@@ -204,7 +251,6 @@ class _AppMixin:
                 "Selecione um arquivo original para criptografar, não um .enc.")
             return
 
-        # Pede o local de salvamento antes de iniciar o processamento
         nome_sugerido = os.path.basename(caminho) + ".html"
         destino = filedialog.asksaveasfilename(
             title="Salvar arquivo criptografado como",
@@ -225,44 +271,11 @@ class _AppMixin:
                 self.after(0, lambda: self._finalizar_progresso(f"✔ Finalizado: {nome}"))
                 self.after(0, self._resetar_campos)
                 self.after(50, lambda: messagebox.showinfo("Sucesso",
-                    f"Arquivo criptografado!\n\n"
-                    f"Salvo em:\n  {destino}\n\n"
-                    "Envie o .html para a pessoa — ela abre no navegador,\n"
+                    f"Arquivo criptografado!\n\nSalvo em:\n  {destino}\n\n"
+                    "Envie o .html — o destinatário abre no navegador,\n"
                     "digita a senha e baixa o arquivo original."))
             except Exception as e:
-                self.after(0, lambda: self._erro_progresso("Erro ao criptografar."))
-                self.after(50, lambda: messagebox.showerror("Erro", str(e)))
-
-        threading.Thread(target=tarefa, daemon=True).start()
-
-    def _descriptografar(self):
-        r = self._validar()
-        if not r:
-            return
-        caminho, senha = r
-
-        if not caminho.endswith(".enc"):
-            messagebox.showwarning("Aviso",
-                "Este botão é para arquivos .enc (formato legado).\n\n"
-                "Para arquivos .html criptografados, basta abri-los no navegador.")
-            return
-
-        self._iniciar_progresso()
-        self.var_status.set("Descriptografando…")
-
-        def tarefa():
-            try:
-                destino = descriptografar_enc(caminho, senha)
-                nome = os.path.basename(destino)
-                self.after(0, lambda: self._finalizar_progresso(f"✔ Finalizado: {nome}"))
-                self.after(50, lambda: messagebox.showinfo("Sucesso",
-                    f"Arquivo restaurado:\n{destino}"))
-            except InvalidToken:
-                self.after(0, lambda: self._erro_progresso("Senha incorreta."))
-                self.after(50, lambda: messagebox.showerror("Senha incorreta",
-                    "Senha incorreta ou arquivo corrompido."))
-            except Exception as e:
-                self.after(0, lambda: self._erro_progresso("Erro."))
+                self.after(0, lambda: self._erro_progresso("✖ Erro ao criptografar."))
                 self.after(50, lambda: messagebox.showerror("Erro", str(e)))
 
         threading.Thread(target=tarefa, daemon=True).start()
@@ -280,5 +293,3 @@ class AppToplevel(_AppMixin, ctk.CTkToplevel):
     def __init__(self, master):
         ctk.CTkToplevel.__init__(self, master)
         self._init_common()
-
-        threading.Thread(target=tarefa, daemon=True).start()
