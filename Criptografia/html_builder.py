@@ -158,15 +158,6 @@ input:focus{
 .btn:active{transform:scale(.99)}
 .btn:disabled{background:#CBD5E0;cursor:not-allowed;transform:none}
 
-.btn-sec{
-  width:100%;margin-top:.6rem;padding:.55rem;
-  background:none;
-  border:1.5px solid #CBD5E0;
-  border-radius:6px;
-  color:#9CA3AF;font-size:.82rem;cursor:pointer;
-  transition:all .2s;
-}
-.btn-sec:hover{border-color:#F5901E;color:#F5901E}
 
 #st{margin-top:1rem;font-size:.88rem;text-align:center;min-height:1.4em}
 .ok{color:#059669;font-weight:600}
@@ -235,10 +226,6 @@ footer a:hover{text-decoration:underline}
        Descriptografar e Baixar
     </button>
 
-    <button class="btn-sec" onclick="dlEnc()">
-       Baixar dados criptografados (.bin)
-    </button>
-
     <p id="st"></p>
 
     <div class="dbg" id="dbg" style="display:none">
@@ -290,12 +277,6 @@ async function contagem(ms){
   btn.disabled=false;
 }
 
-function dlEnc(){
-  const a=Object.assign(document.createElement('a'),
-    {href:URL.createObjectURL(new Blob([b(D.d)])),download:D.n+'.bin'});
-  a.click();
-  document.getElementById('dbg').style.display='block';
-}
 
 async function dec(){
   const st=document.getElementById('st'),btn=document.getElementById('b');
