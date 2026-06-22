@@ -3,29 +3,23 @@ import tkinter as tk
 import customtkinter as ctk
 import os
 import time
-from PIL import Image
+from PIL import Image, ImageDraw, ImageTk
 from processamento import GerenciadorProcessos, obter_diretorio_base
 
 SPINNER = ["◐", "◓", "◑", "◒"]
 
 # ── Paleta ────────────────────────────────────────────────────────────────────
+COR_VIDRO_BLENDED = "#0A2548" 
 COR_FUNDO         = "#EEF2F7"
-COR_TOPBAR        = "#FFFFFF"
 COR_AZUL          = "#1B5299"
-COR_AZUL_SUBTITULO= "#DBEAFE"
 COR_LARANJA       = "#F97316"
 COR_LARANJA_HOVER = "#EA580C"
-COR_CARD          = "#FFFFFF"
-COR_CARD_SHADOW   = "#C8D3E0"
 COR_DIVIDER       = "#E2E8F0"
 COR_PASTA_BORDER  = "#CBD5E0"
-COR_PASTA_HOVER   = "#F1F5F9"
+COR_PASTA_HOVER   = "#1C4473" 
 COR_PASTA_ICONE   = "#64748B"
-COR_TEXTO         = "#1A202C"
-COR_TEXTO_SUAVE   = "#64748B"
 COR_SUCESSO       = "#059669"
 COR_ERRO          = "#DC2626"
-COR_FOOTER        = "#475569"
 
 FONTE = "Segoe UI"
 
@@ -60,7 +54,6 @@ class _Tooltip:
         widget.bind("<Leave>", self._esconder, add="+")
 
     def _agendar(self, event=None):
-        # Aguarda 500ms antes de mostrar — evita tooltip piscando ao passar rapidamente
         self._after = self._widget.after(500, self._mostrar)
 
     def _mostrar(self):
@@ -75,15 +68,13 @@ class _Tooltip:
         self._janela.wm_overrideredirect(True)
         self._janela.attributes("-topmost", True)
 
-        # Borda externa (efeito de sombra sutil)
         borda = tk.Frame(self._janela, bg="#475569", padx=1, pady=1)
         borda.pack()
 
-        # Conteúdo
         tk.Label(
             borda, text=self._texto,
             background="#1E293B", foreground="#E2E8F0",
-            font=(FONTE, 10), padx=14, pady=9,
+            font=(FONTE, 11), padx=14, pady=9,
             wraplength=340, justify="left", relief="flat", bd=0
         ).pack()
 
@@ -107,7 +98,7 @@ class HubApp(ctk.CTk):
         super().__init__()
 
         ctk.set_appearance_mode("light")
-        self.configure(fg_color=COR_FUNDO)
+        self.configure(fg_color=COR_VIDRO_BLENDED) 
         self.geometry("460x730")
         self.resizable(False, False)
         self.title("Hub de Ferramentas — NITTRANS")
@@ -130,76 +121,62 @@ class HubApp(ctk.CTk):
         self._construir_interface()
 
     def _construir_interface(self):
-
-        # ── Rodapé (pack first so it stays at bottom) ─────────────────────────
-        footer = ctk.CTkFrame(self, fg_color=COR_TOPBAR, corner_radius=0, height=34)
-        footer.pack(side="bottom", fill="x")
-        footer.pack_propagate(False)
-        ctk.CTkFrame(footer, fg_color=COR_DIVIDER, corner_radius=0, height=1).pack(fill="x")
-        ctk.CTkLabel(
-            footer,
-            text="NITTRANS  ·  Niterói Transporte e Trânsito  ·  Prefeitura Municipal de Niterói",
-            font=(FONTE, 8), text_color=COR_FOOTER
-        ).pack(expand=True)
-
-        # ── Topbar ────────────────────────────────────────────────────────────
-        topbar = ctk.CTkFrame(self, fg_color=COR_TOPBAR, corner_radius=0, height=76)
-        topbar.pack(fill="x")
-        topbar.pack_propagate(False)
-
         base = obter_diretorio_base()
-        for caminho in [os.path.join(base, "Logo.png"),
-                        os.path.join(base, "_internal", "Logo.png")]:
-            if os.path.exists(caminho):
+        
+        # ── A MÁGICA DA TRANSPARÊNCIA: O CANVAS ────────────────────────────────
+        self.canvas = tk.Canvas(self, width=460, height=730, bg=COR_VIDRO_BLENDED, highlightthickness=0)
+        self.canvas.place(x=0, y=0)
+
+        # ── IMAGEM DE FUNDO ───────────────────────────────────────────────────
+        for caminho_fundo in [os.path.join(base, "FundoAplicativoNITTRANS.png"),
+                              os.path.join(base, "_internal", "FundoAplicativoNITTRANS.png")]:
+            if os.path.exists(caminho_fundo):
                 try:
-                    img = ctk.CTkImage(
-                        light_image=Image.open(caminho),
-                        dark_image=Image.open(caminho),
-                        size=(220, 52)
-                    )
-                    lbl = ctk.CTkLabel(topbar, image=img, text="", fg_color="transparent")
-                    lbl._img_ref = img
-                    lbl.pack(expand=True)
+                    img_original = Image.open(caminho_fundo).convert("RGBA")
+                    img_original = img_original.resize((460, 730), Image.LANCZOS)
+
+                    camada_overlay = Image.new("RGBA", img_original.size, (0, 0, 0, 0))
+                    draw = ImageDraw.Draw(camada_overlay)
+
+                    # Caixa semi-transparente do vidro
+                    cor_azul_nittrans_transparente = (8, 25, 55, 110) 
+                    draw.rounded_rectangle((10, 100, 450, 690), radius=15, fill=cor_azul_nittrans_transparente)
+
+                    img_mesclada = Image.alpha_composite(img_original, camada_overlay)
+
+                    # Salva em ImageTk e desenha no fundo do Canvas
+                    self.tk_fundo = ImageTk.PhotoImage(img_mesclada)
+                    self.canvas.create_image(0, 0, anchor="nw", image=self.tk_fundo)
                     break
-                except Exception:
+                except Exception as e:
+                    print(f"Erro ao gerar fundo: {e}")
                     pass
-        else:
-            ctk.CTkLabel(topbar, text="NITTRANS",
-                         font=(FONTE, 24, "bold"), text_color=COR_AZUL).pack(expand=True)
 
-        # Linha azul 3 px
-        ctk.CTkFrame(self, fg_color=COR_AZUL, corner_radius=0, height=3).pack(fill="x")
+        # ── Topbar (Banner Logo Aumentado) ────────────────────────────────────
+        for ext in ["jpeg", "jpg", "png"]:
+            for caminho in [os.path.join(base, f"LogoNittrans.{ext}"),
+                            os.path.join(base, "_internal", f"LogoNittrans.{ext}")]:
+                if os.path.exists(caminho):
+                    try:
+                        img_logo = Image.open(caminho).resize((460, 100), Image.LANCZOS)
+                        self.tk_logo = ImageTk.PhotoImage(img_logo)
+                        self.canvas.create_image(0, 0, anchor="nw", image=self.tk_logo)
+                        break
+                    except Exception:
+                        pass
+            else:
+                continue
+            break
 
-        # ── Área principal ────────────────────────────────────────────────────
-        main = ctk.CTkFrame(self, fg_color=COR_FUNDO, corner_radius=0)
-        main.pack(fill="both", expand=True, padx=20, pady=16)
+        # ── Textos de Cabeçalho (Desenhados DIRETAMENTE sobre a imagem) ───────
+        # x ajustado para 230 (meio de 460) e anchor="center"
+        self.canvas.create_text(230, 125, text="Departamento de Gestão e Modernização", 
+                                font=(FONTE, 15, "bold"), fill="#FFFFFF", anchor="center", justify="center", width=440)
+        
+        self.canvas.create_text(230, 150, text="Hub de Ferramentas", 
+                                font=(FONTE, 15, "bold"), fill="#A3C2F0", anchor="center", justify="center", width=440)
 
-        # Card externo (azul = cabeçalho, borda limpa)
-        card_ext = ctk.CTkFrame(main, fg_color=COR_AZUL, corner_radius=10,
-                                border_width=1, border_color="#1A4F8A")
-        card_ext.pack(fill="x")
-
-        # Cabeçalho do card
-        hdr = ctk.CTkFrame(card_ext, fg_color="transparent")
-        hdr.pack(fill="x", padx=20, pady=(14, 12))
-
-        ctk.CTkLabel(hdr,
-                     text="Departamento de Gestão e Modernização — NITTRANS",
-                     font=(FONTE, 14, "bold"), text_color="#FFFFFF",
-                     wraplength=360, justify="left",
-                     fg_color="transparent").pack(anchor="w")
-        ctk.CTkLabel(hdr,
-                     text="Hub de Ferramentas",
-                     font=(FONTE, 14, "bold"), text_color=COR_AZUL_SUBTITULO,
-                     fg_color="transparent").pack(anchor="w", pady=(4, 0))
-
-        # Corpo branco
-        card_body = ctk.CTkFrame(card_ext, fg_color=COR_CARD, corner_radius=9)
-        card_body.pack(fill="x", padx=2, pady=(0, 2))
-
-        btn_area = ctk.CTkFrame(card_body, fg_color="transparent")
-        btn_area.pack(fill="x", padx=14, pady=12)
-
+        # ── Botões das Ferramentas (Flutuando sobre o Canvas) ─────────────────
         tools = [
             ("1. Latitude e Longitude",    "LatitudeLongitude",   "enderecos.py"),
             ("2. Limpeza de Arquivos",      "LimpezaArquivo",      "limpeza.py"),
@@ -208,69 +185,44 @@ class HubApp(ctk.CTk):
             ("5. PDF e Excel Multas",       "PdfExcelMultas",      "pdfDeferidoIndeferido.py"),
             ("6. Processos Abertos",        "ProcessosAbertos",    "processosAbertos.py"),
         ]
-        for nome, pasta, script in tools:
-            self._criar_botao(btn_area, nome, pasta, script)
+        
+        start_y = 175
+        for i, (nome, pasta, script) in enumerate(tools):
+            y_pos = start_y + (i * 52) 
+            self._criar_botao_flutuante(nome, pasta, script, y_pos)
 
-        # Separador antes do Criptografar
-        sep_frame = ctk.CTkFrame(btn_area, fg_color="transparent")
-        sep_frame.pack(fill="x", pady=(6, 0))
-        ctk.CTkFrame(sep_frame, fg_color=COR_DIVIDER, corner_radius=0, height=1).pack(fill="x")
-        ctk.CTkLabel(sep_frame, text="Segurança", font=(FONTE, 9, "bold"),
-                     text_color=COR_TEXTO_SUAVE, fg_color="transparent").pack(anchor="w", pady=(4, 2))
+        # ── Área de Segurança ─────────────────────────────────────────────────
+        sep_y = 495
+        # Linha branca e Texto desenhados diretamente
+        self.canvas.create_line(20, sep_y, 440, sep_y, fill="#FFFFFF", width=2)
+        self.canvas.create_text(20, sep_y + 15, text="Segurança", font=(FONTE, 11, "bold"), fill="#FFFFFF", anchor="w")
 
-        # Botão Criptografar (sem pasta, largura total)
-        frame_c = ctk.CTkFrame(btn_area, fg_color="transparent")
-        frame_c.pack(fill="x", pady=(0, 2))
         btn_c = ctk.CTkButton(
-            frame_c,
-            text="  7. Criptografar Arquivos",
-            anchor="w", height=38, corner_radius=6,
-            font=(FONTE, 12, "bold"),
-            fg_color=COR_LARANJA, hover_color=COR_LARANJA_HOVER,
-            text_color="#FFFFFF",
-            command=self._abrir_criptografia
+            self, text="  7. Criptografar Arquivos", anchor="w", height=45, width=420, corner_radius=10,
+            font=(FONTE, 13, "bold"), fg_color=COR_LARANJA, hover_color=COR_LARANJA_HOVER, text_color="#FFFFFF",
+            bg_color=COR_VIDRO_BLENDED, command=self._abrir_criptografia
         )
-        btn_c.pack(fill="x")
+        btn_c.place(x=20, y=sep_y + 35)
         _Tooltip(btn_c, DICAS["criptografia"])
 
-        # ── Área de status ────────────────────────────────────────────────────
-        self.frame_status = ctk.CTkFrame(main, fg_color="transparent")
-        self.frame_status.pack(fill="x", pady=(12, 0))
+        # ── Status e Progresso (Textos Nativos do Canvas) ─────────────────────
+        self.id_spinner = self.canvas.create_text(20, 595, text="", font=(FONTE, 13, "bold"), fill="#FFB347", anchor="w")
+        self.id_status = self.canvas.create_text(20, 615, text="", font=(FONTE, 12), fill="#FFFFFF", anchor="nw", width=420)
 
-        # Linha: spinner + tempo decorrido
-        self.lbl_spinner = ctk.CTkLabel(
-            self.frame_status, text="",
-            font=(FONTE, 12, "bold"), text_color=COR_LARANJA
-        )
-        self.lbl_spinner.pack()
-
-        # Barra de progresso determinada (0 → 100%)
-        self.progress_bar = ctk.CTkProgressBar(
-            self.frame_status,
-            mode="determinate",
-            progress_color=COR_LARANJA,
-            fg_color=COR_DIVIDER,
-            height=6, corner_radius=3
-        )
+        self.progress_bar = ctk.CTkProgressBar(self, mode="determinate", progress_color=COR_LARANJA, fg_color="#FFFFFF", height=8, corner_radius=4, bg_color=COR_VIDRO_BLENDED)
         self.progress_bar.set(0)
 
-        # Mensagem de resultado (sucesso ou erro)
-        self.lbl_status = ctk.CTkLabel(
-            self.frame_status, text="",
-            font=(FONTE, 11), text_color=COR_TEXTO_SUAVE,
-            wraplength=410, justify="left"
-        )
-        self.lbl_status.pack()
-
         self.btn_exportar = ctk.CTkButton(
-            self.frame_status,
-            text="💾   Exportar Arquivo Pronto",
-            fg_color=COR_SUCESSO, hover_color="#047857",
-            text_color="white", height=62, corner_radius=6,
-            font=(FONTE, 13, "bold")
+            self, text="💾   Exportar Arquivo Pronto", fg_color=COR_SUCESSO, hover_color="#047857",
+            text_color="white", height=45, corner_radius=6, font=(FONTE, 14, "bold"), bg_color=COR_VIDRO_BLENDED
         )
 
-        # Estado interno do spinner / progresso
+        # ── Rodapé ────────────────────────────────────────────────────────────
+        self.canvas.create_rectangle(0, 695, 460, 730, fill="#0A1E3F", outline="")
+        self.canvas.create_text(230, 712, text="NITTRANS  ·  Niterói Transporte e Trânsito  ·  Prefeitura Municipal de Niterói", 
+                                font=(FONTE, 9), fill="#FFFFFF", anchor="center")
+
+        # ── Variáveis de Estado ───────────────────────────────────────────────
         self._spinner_after  = None
         self._progress_after = None
         self._start_time     = None
@@ -278,47 +230,34 @@ class HubApp(ctk.CTk):
         self._progress_val   = 0.0
         self._pasta_atual    = ""
 
-    def _criar_botao(self, parent, nome, pasta, script):
-        frame = ctk.CTkFrame(parent, fg_color="transparent")
-        frame.pack(fill="x", pady=3)
-
+    def _criar_botao_flutuante(self, nome, pasta, script, y_pos):
         btn = ctk.CTkButton(
-            frame,
-            text=f"  {nome}",
-            anchor="w", height=38, corner_radius=6,
-            font=(FONTE, 12, "bold"),
-            fg_color=COR_LARANJA, hover_color=COR_LARANJA_HOVER,
-            text_color="#FFFFFF",
+            self, text=f"  {nome}", anchor="w", height=45, width=370, corner_radius=10,
+            font=(FONTE, 13, "bold"), fg_color=COR_LARANJA, hover_color=COR_LARANJA_HOVER,
+            text_color="#FFFFFF", bg_color=COR_VIDRO_BLENDED,
             command=lambda p=pasta, s=script: self.preparar_ferramenta(p, s)
         )
-        btn.pack(side="left", expand=True, fill="x", padx=(0, 6))
-
-        if script in DICAS:
-            _Tooltip(btn, DICAS[script])
+        btn.place(x=20, y=y_pos)
+        if script in DICAS: _Tooltip(btn, DICAS[script])
 
         btn_pasta = ctk.CTkButton(
-            frame, text="📁", width=38, height=38,
-            corner_radius=6,
-            fg_color="transparent",
-            border_width=1, border_color=COR_PASTA_BORDER,
-            hover_color=COR_PASTA_HOVER,
-            text_color=COR_PASTA_ICONE,
-            font=(FONTE, 14),
+            self, text="📁", width=45, height=45, corner_radius=10,
+            fg_color="transparent", bg_color=COR_VIDRO_BLENDED, border_width=1, border_color="#FFFFFF",
+            hover_color=COR_PASTA_HOVER, text_color="#FFFFFF", font=(FONTE, 16),
             command=lambda p=pasta: self.logica.abrir_pasta(p)
         )
-        btn_pasta.pack(side="right")
+        btn_pasta.place(x=395, y=y_pos)
 
     def _abrir_criptografia(self):
         from Criptografia.gui import AppToplevel
         AppToplevel(self)
 
-    # ── Spinner / progresso ───────────────────────────────────────────────────
     def _iniciar_animacao(self, nome):
         self._start_time    = time.time()
         self._spinner_idx   = 0
         self._progress_val  = 0.0
         self.progress_bar.set(0)
-        self.progress_bar.pack(fill="x", pady=(4, 2))
+        self.progress_bar.place(x=20, y=615, width=420)
         self._tick_spinner(nome)
         self._tick_progress()
 
@@ -328,14 +267,14 @@ class HubApp(ctk.CTk):
         mins, secs = divmod(elapsed, 60)
         tempo = f"{mins}m {secs:02d}s" if mins else f"{secs}s"
         pct   = int(self._progress_val * 100)
-        self.lbl_spinner.configure(
-            text=f"{frame}  Processando {nome}...  {pct}%  ({tempo})"
-        )
+        
+        # Atualiza o texto desenhado no Canvas
+        self.canvas.itemconfig(self.id_spinner, text=f"{frame}  Processando {nome}...  {pct}%  ({tempo})")
+        
         self._spinner_idx  += 1
         self._spinner_after = self.after(120, self._tick_spinner, nome)
 
     def _tick_progress(self):
-        # Avança de forma assintótica: rápido no início, lento perto de 92%
         if self._progress_val < 0.92:
             delta = max((0.92 - self._progress_val) * 0.035, 0.001)
             self._progress_val = min(self._progress_val + delta, 0.92)
@@ -349,23 +288,22 @@ class HubApp(ctk.CTk):
         if self._progress_after:
             self.after_cancel(self._progress_after)
             self._progress_after = None
-        self.lbl_spinner.configure(text="")
+            
+        self.canvas.itemconfig(self.id_spinner, text="")
+        
         if sucesso:
             self.progress_bar.set(1.0)
-            self.after(600, lambda: self.progress_bar.pack_forget())
+            self.after(600, lambda: self.progress_bar.place_forget())
         else:
-            self.progress_bar.pack_forget()
+            self.progress_bar.place_forget()
 
-    # ── Callbacks de processamento ────────────────────────────────────────────
     def preparar_ferramenta(self, pasta, script):
-        # Só limpa a UI — animação inicia DEPOIS do arquivo ser escolhido
         self._pasta_atual = pasta
-        self.lbl_status.configure(text="")
-        self.btn_exportar.pack_forget()
+        self.canvas.itemconfig(self.id_status, text="")
+        self.btn_exportar.place_forget()
         self.logica.iniciar_tarefa(pasta, script)
 
     def atualizar_status(self, mensagem, cor=COR_LARANJA):
-        # Chamado pelo processamento.py apenas após arquivo escolhido e thread iniciada
         self._iniciar_animacao(self._pasta_atual)
 
     def ao_finalizar_sucesso(self, pasta):
@@ -376,29 +314,24 @@ class HubApp(ctk.CTk):
         mins, secs = divmod(elapsed, 60)
         tempo = f"{mins}m {secs:02d}s" if mins else f"{secs}s"
         self._parar_animacao(sucesso=True)
-        self.lbl_status.configure(
-            text=f"✔  Concluído em {tempo} — {pasta}",
-            text_color=COR_SUCESSO
-        )
+        
+        self.canvas.itemconfig(self.id_status, text=f"✔  Concluído em {tempo} — {pasta}", fill="#4ADE80")
         self.btn_exportar.configure(command=lambda: self.executar_exportacao(pasta))
-        self.btn_exportar.pack(fill="x", pady=(8, 0))
+        self.btn_exportar.place(x=20, y=645, width=420)
 
     def ao_dar_erro(self, erro):
         self.after(0, self._exibir_erro, erro)
 
     def _exibir_erro(self, erro):
         self._parar_animacao(sucesso=False)
-        # Mostra até 3 linhas do erro; erros longos são truncados com reticências
         linhas = str(erro).strip().splitlines()
         resumo = "\n".join(linhas[:3])
         if len(linhas) > 3:
             resumo += f"\n… (+{len(linhas)-3} linha(s))"
-        self.lbl_status.configure(
-            text=f"✖  Erro ao processar:\n{resumo}",
-            text_color=COR_ERRO
-        )
-        self.btn_exportar.pack_forget()
+            
+        self.canvas.itemconfig(self.id_status, text=f"✖  Erro ao processar:\n{resumo}", fill="#F87171")
+        self.btn_exportar.place_forget()
 
     def executar_exportacao(self, pasta):
         if self.logica.exportar_resultado(pasta):
-            self.btn_exportar.pack_forget()
+            self.btn_exportar.place_forget()
