@@ -3,8 +3,9 @@ import tkinter as tk
 import customtkinter as ctk
 import os
 import time
-from PIL import Image, ImageDraw, ImageTk # Adicionado ImageTk
+from PIL import Image, ImageDraw, ImageTk
 from processamento import GerenciadorProcessos, obter_diretorio_base
+from TarjarPDF.interface_tarjar import JanelaHigienizar # Importação que você adicionou
 
 SPINNER = ["◐", "◓", "◑", "◒"]
 
@@ -41,6 +42,7 @@ DICAS = {
     "pdfDeferidoIndeferido.py": "Extrai processos deferidos/indeferidos de PDFs do sistema GAIDE.",
     "processosAbertos.py":      "Lê relatórios PDF de Processos Abertos 1ª Instância e exporta para Excel.",
     "criptografia":             "Criptografa arquivos com AES-256-GCM e gera HTML autocontido com senha.",
+    "tarjar":                   "Oculta CPFs, e-mails e telefones de PDFs para adequação à LGPD." # [NOVO] Dica adicionada
 }
 
 
@@ -99,7 +101,8 @@ class HubApp(ctk.CTk):
 
         ctk.set_appearance_mode("light")
         self.configure(fg_color=COR_VIDRO_BLENDED) 
-        self.geometry("460x730")
+        # [MODIFICADO] Altura aumentada de 730 para 785 para caber o novo botão perfeitamente
+        self.geometry("460x785") 
         self.resizable(False, False)
         self.title("Hub de Ferramentas — NITTRANS")
 
@@ -124,7 +127,8 @@ class HubApp(ctk.CTk):
         base = obter_diretorio_base()
         
         # ── A MÁGICA DA TRANSPARÊNCIA: O CANVAS ────────────────────────────────
-        self.canvas = tk.Canvas(self, width=460, height=730, bg=COR_VIDRO_BLENDED, highlightthickness=0)
+        # [MODIFICADO] Altura do canvas ajustada para 785
+        self.canvas = tk.Canvas(self, width=460, height=785, bg=COR_VIDRO_BLENDED, highlightthickness=0)
         self.canvas.place(x=0, y=0)
 
         # ── IMAGEM DE FUNDO ───────────────────────────────────────────────────
@@ -133,14 +137,15 @@ class HubApp(ctk.CTk):
             if os.path.exists(caminho_fundo):
                 try:
                     img_original = Image.open(caminho_fundo).convert("RGBA")
-                    img_original = img_original.resize((460, 730), Image.LANCZOS)
+                    # [MODIFICADO] Resize ajustado para acompanhar a nova altura
+                    img_original = img_original.resize((460, 785), Image.LANCZOS)
 
                     camada_overlay = Image.new("RGBA", img_original.size, (0, 0, 0, 0))
                     draw = ImageDraw.Draw(camada_overlay)
 
-                    # Caixa semi-transparente do vidro
+                    # Caixa semi-transparente do vidro (Aumentada até 745)
                     cor_azul_nittrans_transparente = (8, 25, 55, 110) 
-                    draw.rounded_rectangle((10, 100, 450, 690), radius=15, fill=cor_azul_nittrans_transparente)
+                    draw.rounded_rectangle((10, 100, 450, 745), radius=15, fill=cor_azul_nittrans_transparente)
 
                     img_mesclada = Image.alpha_composite(img_original, camada_overlay)
 
@@ -196,6 +201,7 @@ class HubApp(ctk.CTk):
         self.canvas.create_line(20, sep_y, 440, sep_y, fill="#FFFFFF", width=2)
         self.canvas.create_text(20, sep_y + 15, text="Segurança", font=(FONTE, 11, "bold"), fill="#FFFFFF", anchor="w")
 
+        # Botão 7: Criptografia
         btn_c = ctk.CTkButton(
             self, text="  7. Criptografar Arquivos", anchor="w", height=45, width=420, corner_radius=10,
             font=(FONTE, 13, "bold"), fg_color=COR_LARANJA, hover_color=COR_LARANJA_HOVER, text_color="#FFFFFF",
@@ -204,9 +210,19 @@ class HubApp(ctk.CTk):
         btn_c.place(x=20, y=sep_y + 35)
         _Tooltip(btn_c, DICAS["criptografia"])
 
+        # [NOVO] Botão 8: Tarjar PDF (Posicionado 52 pixels abaixo do botão 7)
+        btn_t = ctk.CTkButton(
+            self, text="  8. Tarjar PDF (LGPD)", anchor="w", height=45, width=420, corner_radius=10,
+            font=(FONTE, 13, "bold"), fg_color=COR_LARANJA, hover_color=COR_LARANJA_HOVER, text_color="#FFFFFF",
+            bg_color=COR_VIDRO_BLENDED, command=self._abrir_tarjar
+        )
+        btn_t.place(x=20, y=sep_y + 87)
+        _Tooltip(btn_t, DICAS["tarjar"])
+
         # ── Status e Progresso (Textos Nativos do Canvas) ─────────────────────
-        self.id_spinner = self.canvas.create_text(20, 595, text="", font=(FONTE, 13, "bold"), fill="#FFB347", anchor="w")
-        self.id_status = self.canvas.create_text(20, 615, text="", font=(FONTE, 12), fill="#FFFFFF", anchor="nw", width=420)
+        # [MODIFICADO] Descidos em 55 pixels para acompanhar o novo layout
+        self.id_spinner = self.canvas.create_text(20, 650, text="", font=(FONTE, 13, "bold"), fill="#FFB347", anchor="w")
+        self.id_status = self.canvas.create_text(20, 670, text="", font=(FONTE, 12), fill="#FFFFFF", anchor="nw", width=420)
 
         self.progress_bar = ctk.CTkProgressBar(self, mode="determinate", progress_color=COR_LARANJA, fg_color="#FFFFFF", height=8, corner_radius=4, bg_color=COR_VIDRO_BLENDED)
         self.progress_bar.set(0)
@@ -217,8 +233,9 @@ class HubApp(ctk.CTk):
         )
 
         # ── Rodapé ────────────────────────────────────────────────────────────
-        self.canvas.create_rectangle(0, 695, 460, 730, fill="#0A1E3F", outline="")
-        self.canvas.create_text(230, 712, text="NITTRANS  ·  Niterói Transporte e Trânsito  ·  Prefeitura Municipal de Niterói", 
+        # [MODIFICADO] Descido para a nova base da tela (750 a 785)
+        self.canvas.create_rectangle(0, 750, 460, 785, fill="#0A1E3F", outline="")
+        self.canvas.create_text(230, 767, text="NITTRANS  ·  Niterói Transporte e Trânsito  ·  Prefeitura Municipal de Niterói", 
                                 font=(FONTE, 9), fill="#FFFFFF", anchor="center")
 
         # ── Variáveis de Estado ───────────────────────────────────────────────
@@ -251,12 +268,18 @@ class HubApp(ctk.CTk):
         from Criptografia.gui import AppToplevel
         AppToplevel(self)
 
+    # [NOVO] Função para chamar a janela de Tarjar
+    def _abrir_tarjar(self):
+        # A importação já foi feita no topo do arquivo
+        JanelaHigienizar(self)
+
     def _iniciar_animacao(self, nome):
         self._start_time    = time.time()
         self._spinner_idx   = 0
         self._progress_val  = 0.0
         self.progress_bar.set(0)
-        self.progress_bar.place(x=20, y=615, width=420)
+        # [MODIFICADO] y da barra alterado de 615 para 670
+        self.progress_bar.place(x=20, y=670, width=420)
         self._tick_spinner(nome)
         self._tick_progress()
 
@@ -316,7 +339,8 @@ class HubApp(ctk.CTk):
         
         self.canvas.itemconfig(self.id_status, text=f"✔  Concluído em {tempo} — {pasta}", fill="#4ADE80")
         self.btn_exportar.configure(command=lambda: self.executar_exportacao(pasta))
-        self.btn_exportar.place(x=20, y=645, width=420)
+        # [MODIFICADO] y do botão exportar alterado de 645 para 700
+        self.btn_exportar.place(x=20, y=700, width=420)
 
     def ao_dar_erro(self, erro):
         self.after(0, self._exibir_erro, erro)
