@@ -3,7 +3,7 @@ import tkinter as tk
 import customtkinter as ctk
 import os
 import time
-from PIL import Image, ImageDraw, ImageTk
+from PIL import Image, ImageDraw, ImageTk # Adicionado ImageTk
 from processamento import GerenciadorProcessos, obter_diretorio_base
 
 SPINNER = ["◐", "◓", "◑", "◒"]
@@ -169,12 +169,11 @@ class HubApp(ctk.CTk):
             break
 
         # ── Textos de Cabeçalho (Desenhados DIRETAMENTE sobre a imagem) ───────
-        # x ajustado para 230 (meio de 460) e anchor="center"
         self.canvas.create_text(230, 125, text="Departamento de Gestão e Modernização", 
-                                font=(FONTE, 15, "bold"), fill="#FFFFFF", anchor="center", justify="center", width=440)
+                                font=(FONTE, 15, "bold"), fill="#FFFFFF", anchor="center")
         
         self.canvas.create_text(230, 150, text="Hub de Ferramentas", 
-                                font=(FONTE, 15, "bold"), fill="#A3C2F0", anchor="center", justify="center", width=440)
+                                font=(FONTE, 15, "bold"), fill="#A3C2F0", anchor="center")
 
         # ── Botões das Ferramentas (Flutuando sobre o Canvas) ─────────────────
         tools = [

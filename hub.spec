@@ -7,7 +7,8 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('Logo.png', '.'),
+        ('FundoAplicativoNITTRANS.png', '.'), 
+        ('LogoNittrans.jpeg', '.'),
         ('logo.ico', '.'),
     ],
     hiddenimports=[
