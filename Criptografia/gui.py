@@ -1,11 +1,12 @@
+# -*- coding: utf-8 -*-
 import os
 import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from PIL import Image, ImageDraw, ImageTk
 
 import customtkinter as ctk
-from cryptography.fernet import InvalidToken
 
 try:
     from Criptografia.crypto import descriptografar_enc
@@ -15,17 +16,18 @@ except ImportError:
     from html_builder import gerar_html
 
 # ── Paleta idêntica ao Hub ──────────────────────────────────────────────────
+COR_VIDRO_BLENDED = "#0A2548" # Camuflagem perfeita para o vidro
 _FUNDO    = "#EEF2F7"
 _AZUL     = "#1B5299"
-_AZUL_SUB = "#DBEAFE"
+_AZUL_SUB = "#A3C2F0"
 _LARANJA  = "#F97316"
 _LAR_HOV  = "#EA580C"
 _BRANCO   = "#FFFFFF"
 _BORDA    = "#E2E8F0"
 _TEXTO    = "#1A202C"
-_TEXTO_S  = "#64748B"
-_SUCESSO  = "#059669"
-_ERRO     = "#DC2626"
+_TEXTO_S  = "#A3C2F0"
+_SUCESSO  = "#4ADE80"
+_ERRO     = "#F87171"
 _FONTE    = "Segoe UI"
 
 TIPOS_ABRIR = [
@@ -43,9 +45,10 @@ class _AppMixin:
 
     def _init_common(self):
         self.title("Criptografar Arquivos — NITTRANS")
-        self.geometry("480x430")
+        self.geometry("480x480") # Ajustado para caber o novo design
         self.resizable(False, False)
-        self.configure(fg_color=_FUNDO)
+        # Cor de fundo camuflada com o vidro
+        self.configure(fg_color=COR_VIDRO_BLENDED)
 
         # CTkToplevel reinicia internamente ~200ms após criar — define o ícone antes e depois
         self.after(50,  self._aplicar_icone)
@@ -56,14 +59,22 @@ class _AppMixin:
         self._build_ui()
         self._centralizar()
 
+    def _obter_caminho_recurso(self, nome_arquivo):
+        # Procura na pasta atual, na pasta pai ou no _internal do executável
+        caminhos = [
+            nome_arquivo,
+            os.path.join("..", nome_arquivo),
+            os.path.join(os.path.dirname(__file__), "..", nome_arquivo),
+            os.path.join(getattr(sys, '_MEIPASS', ''), nome_arquivo),
+            os.path.join(os.path.dirname(sys.executable), "_internal", nome_arquivo)
+        ]
+        for p in caminhos:
+            if os.path.exists(p): return p
+        return nome_arquivo
+
     def _aplicar_icone(self):
         try:
-            if getattr(sys, 'frozen', False):
-                # Rodando como .exe — logo.ico está em _internal/ ao lado do executável
-                ico = os.path.join(os.path.dirname(sys.executable), "_internal", "logo.ico")
-            else:
-                # Rodando direto do Python — logo.ico está na raiz do projeto
-                ico = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "logo.ico")
+            ico = self._obter_caminho_recurso("logo.ico")
             if os.path.exists(ico):
                 self.iconbitmap(ico)
         except Exception:
@@ -76,100 +87,86 @@ class _AppMixin:
         self.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
 
     def _build_ui(self):
-        self.grid_columnconfigure(0, weight=1)
+        # ── CANVAS (O PINTOR) ──────────────────────────────────────────────────
+        self.canvas = tk.Canvas(self, width=480, height=480, bg=COR_VIDRO_BLENDED, highlightthickness=0)
+        self.canvas.place(x=0, y=0)
 
-        # ── Card azul (header + body) ─────────────────────────────────────────
-        card = ctk.CTkFrame(self, fg_color=_AZUL, corner_radius=10,
-                            border_width=1, border_color="#1A4F8A")
-        card.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
-        card.grid_columnconfigure(0, weight=1)
+        # ── PROCESSAMENTO DO FUNDO ─────────────────────────────────────────────
+        caminho_fundo = self._obter_caminho_recurso("FundoAplicativoNITTRANS.png")
+        if os.path.exists(caminho_fundo):
+            try:
+                img_original = Image.open(caminho_fundo).convert("RGBA")
+                img_original = img_original.resize((480, 480), Image.LANCZOS)
 
-        # Header
-        hdr = ctk.CTkFrame(card, fg_color="transparent")
-        hdr.grid(row=0, column=0, padx=20, pady=(14, 12), sticky="w")
+                camada_overlay = Image.new("RGBA", img_original.size, (0, 0, 0, 0))
+                draw = ImageDraw.Draw(camada_overlay)
 
-        ctk.CTkLabel(hdr, text="Criptografar Arquivos",
-                     font=(_FONTE, 15, "bold"), text_color="#FFFFFF",
-                     fg_color="transparent").pack(anchor="w")
-        ctk.CTkLabel(hdr, text="Proteja arquivos com senha — HTML autocontido",
-                     font=(_FONTE, 10), text_color=_AZUL_SUB,
-                     fg_color="transparent").pack(anchor="w", pady=(3, 0))
+                # Vidro fumê
+                draw.rounded_rectangle((15, 15, 465, 465), radius=15, fill=(8, 25, 55, 110))
 
-        # Corpo branco
-        body = ctk.CTkFrame(card, fg_color=_BRANCO, corner_radius=9)
-        body.grid(row=1, column=0, padx=2, pady=(0, 2), sticky="ew")
-        body.grid_columnconfigure(0, weight=1)
+                img_mesclada = Image.alpha_composite(img_original, camada_overlay)
+                self.tk_fundo = ImageTk.PhotoImage(img_mesclada)
+                self.canvas.create_image(0, 0, anchor="nw", image=self.tk_fundo)
+            except Exception as e:
+                print(f"Erro ao carregar fundo: {e}")
 
-        inner = ctk.CTkFrame(body, fg_color="transparent")
-        inner.grid(row=0, column=0, padx=18, pady=16, sticky="ew")
-        inner.grid_columnconfigure(0, weight=1)
+        # ── TEXTOS NATIVOS NO CANVAS (Sem blocos escuros) ──────────────────────
+        self.canvas.create_text(40, 50, text="Criptografar Arquivos", 
+                                font=(_FONTE, 18, "bold"), fill=_BRANCO, anchor="w")
+        
+        self.canvas.create_text(40, 75, text="Proteja arquivos com senha — HTML autocontido", 
+                                font=(_FONTE, 11), fill=_AZUL_SUB, anchor="w")
 
-        # ── Arquivo ───────────────────────────────────────────────────────────
-        ctk.CTkLabel(inner, text="Arquivo", font=(_FONTE, 11, "bold"),
-                     text_color=_TEXTO, fg_color="transparent").grid(
-            row=0, column=0, sticky="w", pady=(0, 5))
+        self.canvas.create_text(40, 130, text="Arquivo", font=(_FONTE, 12, "bold"), fill=_BRANCO, anchor="w")
+        self.canvas.create_text(40, 215, text="Senha de acesso", font=(_FONTE, 12, "bold"), fill=_BRANCO, anchor="w")
 
-        row_arq = ctk.CTkFrame(inner, fg_color="transparent")
-        row_arq.grid(row=1, column=0, sticky="ew", pady=(0, 14))
-        row_arq.grid_columnconfigure(0, weight=1)
+        # Status Label nativo do Canvas
+        self.id_status = self.canvas.create_text(240, 435, text="Selecione um arquivo para começar.", 
+                                                 font=(_FONTE, 11), fill=_TEXTO_S, anchor="center")
 
+        # ── WIDGETS FLUTUANTES ─────────────────────────────────────────────────
+        # Arquivo
         self.entry_arquivo = ctk.CTkEntry(
-            row_arq, placeholder_text="Nenhum arquivo selecionado",
-            state="disabled", height=36,
-            fg_color=_BRANCO, border_color=_BORDA, text_color=_TEXTO)
-        self.entry_arquivo.grid(row=0, column=0, padx=(0, 8), sticky="ew")
+            self, placeholder_text="Nenhum arquivo selecionado",
+            state="disabled", height=40, width=280, corner_radius=8,
+            fg_color=_BRANCO, border_color=_BORDA, text_color=_TEXTO, bg_color=COR_VIDRO_BLENDED)
+        self.entry_arquivo.place(x=40, y=145)
 
-        ctk.CTkButton(row_arq, text="Selecionar", width=105, height=36,
+        ctk.CTkButton(self, text="Selecionar", width=110, height=40,
                       fg_color=_LARANJA, hover_color=_LAR_HOV,
                       text_color="white", font=(_FONTE, 12, "bold"),
-                      corner_radius=6,
-                      command=self._selecionar).grid(row=0, column=1)
+                      corner_radius=8, bg_color=COR_VIDRO_BLENDED,
+                      command=self._selecionar).place(x=330, y=145)
 
-        # ── Senha ─────────────────────────────────────────────────────────────
-        ctk.CTkLabel(inner, text="Senha de acesso", font=(_FONTE, 11, "bold"),
-                     text_color=_TEXTO, fg_color="transparent").grid(
-            row=2, column=0, sticky="w", pady=(0, 5))
-
-        row_senha = ctk.CTkFrame(inner, fg_color="transparent")
-        row_senha.grid(row=3, column=0, sticky="ew", pady=(0, 16))
-        row_senha.grid_columnconfigure(0, weight=1)
-
+        # Senha
         self.var_senha = tk.StringVar()
         self.entry_senha = ctk.CTkEntry(
-            row_senha, textvariable=self.var_senha,
-            show="●", placeholder_text="Digite a senha", height=36,
-            fg_color=_BRANCO, border_color=_BORDA, text_color=_TEXTO)
-        self.entry_senha.grid(row=0, column=0, padx=(0, 8), sticky="ew")
+            self, textvariable=self.var_senha, width=310,
+            show="●", placeholder_text="Digite a senha", height=40, corner_radius=8,
+            fg_color=_BRANCO, border_color=_BORDA, text_color=_TEXTO, bg_color=COR_VIDRO_BLENDED)
+        self.entry_senha.place(x=40, y=230)
         self.entry_senha.bind("<Return>", lambda e: self._criptografar())
 
         self.var_mostrar = tk.BooleanVar()
-        ctk.CTkCheckBox(row_senha, text="Mostrar", variable=self.var_mostrar,
-                        command=self._toggle_senha, width=90,
-                        fg_color=_LARANJA, hover_color=_LAR_HOV,
-                        text_color=_TEXTO, checkmark_color="white").grid(
-            row=0, column=1)
+        ctk.CTkCheckBox(self, text="Mostrar", variable=self.var_mostrar,
+                        command=self._toggle_senha, width=80,
+                        fg_color=_LARANJA, hover_color=_LAR_HOV, bg_color=COR_VIDRO_BLENDED,
+                        text_color=_BRANCO, checkmark_color="white").place(x=365, y=238)
 
-        # ── Botão principal ───────────────────────────────────────────────────
-        ctk.CTkButton(inner, text="🔒   Criptografar → HTML",
+        # Botão Criptografar
+        ctk.CTkButton(self, text="🔒   Criptografar → HTML", width=400,
                       fg_color=_LARANJA, hover_color=_LAR_HOV,
-                      text_color="white", height=44, corner_radius=6,
-                      font=(_FONTE, 13, "bold"),
-                      command=self._criptografar).grid(
-            row=4, column=0, sticky="ew", pady=(0, 10))
+                      text_color="white", height=48, corner_radius=8,
+                      font=(_FONTE, 14, "bold"), bg_color=COR_VIDRO_BLENDED,
+                      command=self._criptografar).place(x=40, y=305)
 
-        # ── Progresso ─────────────────────────────────────────────────────────
-        self.progress = ctk.CTkProgressBar(inner, mode="determinate",
-                                           progress_color=_LARANJA,
-                                           fg_color=_BORDA, height=5, corner_radius=3)
-        self.progress.grid(row=5, column=0, sticky="ew", pady=(0, 8))
+        # Progresso
+        self.progress = ctk.CTkProgressBar(self, mode="determinate", width=400,
+                                           progress_color=_LARANJA, bg_color=COR_VIDRO_BLENDED,
+                                           fg_color=_BRANCO, height=6, corner_radius=3)
+        self.progress.place(x=40, y=390)
         self.progress.set(0)
 
-        # ── Status ────────────────────────────────────────────────────────────
-        self.var_status = tk.StringVar(value="Selecione um arquivo para começar.")
-        ctk.CTkLabel(inner, textvariable=self.var_status,
-                     text_color=_TEXTO_S, wraplength=400,
-                     fg_color="transparent",
-                     font=(_FONTE, 11)).grid(row=6, column=0, pady=(0, 2))
 
     # ── Progresso ─────────────────────────────────────────────────────────────
 
@@ -189,7 +186,7 @@ class _AppMixin:
             self.after_cancel(self._after_progresso)
             self._after_progresso = None
         self.progress.set(1.0)
-        self.var_status.set(mensagem)
+        self.canvas.itemconfig(self.id_status, text=mensagem, fill=_SUCESSO)
         self.after(3000, lambda: self.progress.set(0))
 
     def _erro_progresso(self, mensagem: str):
@@ -197,7 +194,7 @@ class _AppMixin:
             self.after_cancel(self._after_progresso)
             self._after_progresso = None
         self.progress.set(0)
-        self.var_status.set(mensagem)
+        self.canvas.itemconfig(self.id_status, text=mensagem, fill=_ERRO)
 
     # ── UI helpers ─────────────────────────────────────────────────────────────
 
@@ -216,7 +213,7 @@ class _AppMixin:
                                              filetypes=TIPOS_ABRIR)
         if caminho:
             self._set_arquivo(caminho)
-            self.var_status.set(f"Arquivo: {os.path.basename(caminho)}")
+            self.canvas.itemconfig(self.id_status, text=f"Arquivo: {os.path.basename(caminho)}", fill=_TEXTO_S)
 
     def _validar(self):
         if not self._caminho:
@@ -262,7 +259,7 @@ class _AppMixin:
             return
 
         self._iniciar_progresso()
-        self.var_status.set("Criptografando…")
+        self.canvas.itemconfig(self.id_status, text="Criptografando…", fill=_TEXTO_S)
 
         def tarefa():
             try:
