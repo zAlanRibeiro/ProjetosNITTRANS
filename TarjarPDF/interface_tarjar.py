@@ -115,7 +115,7 @@ class JanelaHigienizar(ctk.CTkToplevel):
             self.caminho_arquivo = c
             self.canvas.itemconfig(self.id_arquivo, text=os.path.basename(c), fill="#FFFFFF")
 
-    def ejecutar(self):
+    def executar(self):
         if not self.caminho_arquivo:
             self.canvas.itemconfig(self.id_status, text="Erro: Selecione um arquivo!", fill="#F87171")
             return

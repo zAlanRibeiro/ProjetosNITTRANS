@@ -23,7 +23,6 @@ def processar_pdf_lgpd(caminho_entrada, tarjar_cpf=True, tarjar_email=True, tarj
     if tarjar_rg: 
         padroes_ativos["RG"] = r"(?<!\d)(?:\d{1,2}\.\d{3}\.\d{3}-[0-9Xx]|\d{4}\.\d{3}-[0-9Xx]|\d{7,9}-[0-9Xx]|\d{8,9})(?!\d)"
 
-    # Adicionada a regra para o CNPJ (Aceita com pontuação padrão ou apenas os 14 dígitos diretos)
     if tarjar_cnpj:
         padroes_ativos["CNPJ"] = r"(?<!\d)(?:\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}|\d{14})(?!\d)"
 
@@ -52,10 +51,30 @@ def processar_pdf_lgpd(caminho_entrada, tarjar_cpf=True, tarjar_email=True, tarj
                         pagina.add_redact_annot(area, fill=(0, 0, 0))
                         total_tarjas += 1
             
-            # 2. Manual (Lista)
+            # 2. Manual (Lista com Inteligência de Palavras Isoladas)
+            palavras_da_pagina = pagina.get_text("words") # Extrai as palavras separadamente
+            
             for texto in lista_textos_manuais:
-                if texto.strip():
-                    areas = pagina.search_for(texto.strip())
+                termo = texto.strip()
+                if not termo:
+                    continue
+                
+                # Se for uma única palavra (não contém espaços)
+                if " " not in termo:
+                    # Busca exata comparando palavra por palavra da página
+                    for w in palavras_da_pagina:
+                        # w[4] é o texto puro. Limpamos pontuações nas bordas para comparar de forma justa
+                        palavra_limpa = re.sub(r"^[^\w]+|[^\w]+$", "", w[4])
+                        
+                        # Compara ignorando maiúsculas/minúsculas para manter a facilidade de uso
+                        if palavra_limpa.lower() == termo.lower():
+                            # w[:4] contém as coordenadas exatas daquela palavra
+                            area_palavra = fitz.Rect(w[:4])
+                            pagina.add_redact_annot(area_palavra, fill=(0, 0, 0))
+                            total_tarjas += 1
+                else:
+                    # Se for um nome/frase composta (ex: "João da Silva"), usamos a busca normal e segura
+                    areas = pagina.search_for(termo)
                     for area in areas:
                         pagina.add_redact_annot(area, fill=(0, 0, 0))
                         total_tarjas += 1
