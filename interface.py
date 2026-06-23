@@ -212,7 +212,7 @@ class HubApp(ctk.CTk):
 
         # [NOVO] Botão 8: Tarjar PDF (Posicionado 52 pixels abaixo do botão 7)
         btn_t = ctk.CTkButton(
-            self, text="  8. Tarjar PDF (LGPD)", anchor="w", height=45, width=420, corner_radius=10,
+            self, text="  8. Tarjar PDF", anchor="w", height=45, width=420, corner_radius=10,
             font=(FONTE, 13, "bold"), fg_color=COR_LARANJA, hover_color=COR_LARANJA_HOVER, text_color="#FFFFFF",
             bg_color=COR_VIDRO_BLENDED, command=self._abrir_tarjar
         )

@@ -13,7 +13,7 @@ class JanelaHigienizar(ctk.CTkToplevel):
     def __init__(self, master, *args, **kwargs):
         super().__init__(master, *args, **kwargs)
         
-        self.title("Tarjar PDF (LGPD) — NITTRANS")
+        self.title("Tarjar PDF — NITTRANS")
         self.geometry("460x650") 
         self.resizable(False, False)
         self.grab_set()
@@ -26,7 +26,6 @@ class JanelaHigienizar(ctk.CTkToplevel):
                     os.path.join(base, "_internal", "logo.ico")]:
             if os.path.exists(ico):
                 try:
-                    # Usamos .after no Toplevel para garantir que o ícone aplique no Windows
                     self.after(200, lambda i=ico: self.iconbitmap(i))
                 except Exception:
                     pass
@@ -55,11 +54,9 @@ class JanelaHigienizar(ctk.CTkToplevel):
         COR_FUNDO_VIDRO = "#0C2340"
 
         # Banner Superior
-        self.canvas.create_text(230, 135, text="Tarjar PDF (LGPD)", font=("Segoe UI", 18, "bold"), fill="#FFFFFF")
+        self.canvas.create_text(230, 135, text="Tarjar PDF", font=("Segoe UI", 18, "bold"), fill="#FFFFFF")
 
         # ── COMPONENTES INTERATIVOS ───────────────────────────────────────────
-        
-        # Texto Arquivo (Desenhado no Canvas para transparência perfeita)
         self.id_arquivo = self.canvas.create_text(230, 170, text="Selecione um arquivo...", 
                                                   font=("Segoe UI", 12), fill="#A3C2F0", anchor="center")
 
@@ -67,21 +64,33 @@ class JanelaHigienizar(ctk.CTkToplevel):
                                 fg_color="#1B5299", hover_color="#153E75", height=35, bg_color=COR_FUNDO_VIDRO)
         btn_sel.place(x=230, y=215, anchor="center")
 
-        # Checkboxes
-        self.frame_chk = ctk.CTkFrame(self, fg_color=COR_FUNDO_VIDRO, bg_color=COR_FUNDO_VIDRO)
+        # ── CHECKBOXES (Esticado proporcionalmente de ponta a ponta) ──────────
+        self.frame_chk = ctk.CTkFrame(self, width=380, height=35, 
+                                      fg_color=COR_FUNDO_VIDRO, bg_color=COR_FUNDO_VIDRO)
         self.frame_chk.place(x=230, y=265, anchor="center")
+        
+        # Trava o tamanho do frame para respeitar os 380px de largura
+        self.frame_chk.grid_propagate(False) 
+        
+        # Distribui uniformemente as 4 colunas dentro do espaço esticado
+        self.frame_chk.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
-        self.v_cpf = ctk.BooleanVar(value=True)
+        self.v_cpf = ctk.BooleanVar(value=False)
         ctk.CTkCheckBox(self.frame_chk, text="CPF", variable=self.v_cpf, text_color="#FFFFFF",
-                        fg_color="#F97316", bg_color=COR_FUNDO_VIDRO).grid(row=0, column=0, padx=10)
+                        fg_color="#F97316", bg_color=COR_FUNDO_VIDRO).grid(row=0, column=0, pady=4)
         
-        self.v_rg = ctk.BooleanVar(value=True)
+        self.v_rg = ctk.BooleanVar(value=False)
         ctk.CTkCheckBox(self.frame_chk, text="RG", variable=self.v_rg, text_color="#FFFFFF",
-                        fg_color="#F97316", bg_color=COR_FUNDO_VIDRO).grid(row=0, column=1, padx=10)
+                        fg_color="#F97316", bg_color=COR_FUNDO_VIDRO).grid(row=0, column=1, pady=4)
         
-        self.v_em = ctk.BooleanVar(value=True)
+        self.v_em = ctk.BooleanVar(value=False)
         ctk.CTkCheckBox(self.frame_chk, text="E-mail", variable=self.v_em, text_color="#FFFFFF",
-                        fg_color="#F97316", bg_color=COR_FUNDO_VIDRO).grid(row=0, column=2, padx=10)
+                        fg_color="#F97316", bg_color=COR_FUNDO_VIDRO).grid(row=0, column=2, pady=4)
+
+        self.v_cnpj = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(self.frame_chk, text="CNPJ", variable=self.v_cnpj, text_color="#FFFFFF",
+                        fg_color="#F97316", bg_color=COR_FUNDO_VIDRO).grid(row=0, column=3, pady=4)
+        # ──────────────────────────────────────────────────────────────────────
 
         # Caixa Multi-linha
         self.canvas.create_text(50, 310, text="Palavras Manuais (uma por linha):", 
@@ -96,7 +105,7 @@ class JanelaHigienizar(ctk.CTkToplevel):
                                       bg_color=COR_FUNDO_VIDRO, command=self.executar)
         self.btn_exec.place(x=230, y=490, anchor="center")
 
-        # Texto Status (Desenhado no Canvas)
+        # Texto Status
         self.id_status = self.canvas.create_text(230, 540, text="", font=("Segoe UI", 11, "bold"), 
                                                  fill="#FFFFFF", anchor="center", width=420)
 
@@ -104,10 +113,9 @@ class JanelaHigienizar(ctk.CTkToplevel):
         c = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
         if c:
             self.caminho_arquivo = c
-            # Atualiza o texto desenhado no Canvas
             self.canvas.itemconfig(self.id_arquivo, text=os.path.basename(c), fill="#FFFFFF")
 
-    def executar(self):
+    def ejecutar(self):
         if not self.caminho_arquivo:
             self.canvas.itemconfig(self.id_status, text="Erro: Selecione um arquivo!", fill="#F87171")
             return
@@ -118,7 +126,15 @@ class JanelaHigienizar(ctk.CTkToplevel):
         self.canvas.itemconfig(self.id_status, text="Processando...", fill="#FFB347")
         self.update()
         
-        ok, msg = processar_pdf_lgpd(self.caminho_arquivo, self.v_cpf.get(), self.v_em.get(), self.v_rg.get(), lista)
+        # Chamada com o parâmetro CNPJ integrado
+        ok, msg = processar_pdf_lgpd(
+            self.caminho_arquivo, 
+            self.v_cpf.get(), 
+            self.v_em.get(), 
+            self.v_rg.get(), 
+            lista,
+            tarjar_cnpj=self.v_cnpj.get()
+        )
         
         cor_status = "#4ADE80" if ok else "#F87171"
         self.canvas.itemconfig(self.id_status, text=msg, fill=cor_status)

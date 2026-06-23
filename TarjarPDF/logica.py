@@ -3,7 +3,7 @@ import fitz  # PyMuPDF
 import re
 import os
 
-def processar_pdf_lgpd(caminho_entrada, tarjar_cpf=True, tarjar_email=True, tarjar_rg=True, lista_textos_manuais=None):
+def processar_pdf_lgpd(caminho_entrada, tarjar_cpf=True, tarjar_email=True, tarjar_rg=True, lista_textos_manuais=None, tarjar_cnpj=False):
     if not caminho_entrada or not os.path.exists(caminho_entrada):
         return False, "Selecione um arquivo válido."
 
@@ -13,7 +13,7 @@ def processar_pdf_lgpd(caminho_entrada, tarjar_cpf=True, tarjar_email=True, tarj
 
     padroes_ativos = {}
     
-    # ── REGEX APRIMORADO COM LIMITADORES ──────────────────────────────────────
+    # ── REGEX COM LIMITADORES EXATOS ──────────────────────────────────────────
     if tarjar_cpf: 
         padroes_ativos["CPF"] = r"(?<!\d)(?:\d{3}\.\d{3}\.\d{3}-\d{2}|\d{11})(?!\d)"
         
@@ -21,7 +21,11 @@ def processar_pdf_lgpd(caminho_entrada, tarjar_cpf=True, tarjar_email=True, tarj
         padroes_ativos["E-mail"] = r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b"
         
     if tarjar_rg: 
-        padroes_ativos["RG"] = r"(?<!\d)(?:\d{1,2}\.\d{3}\.\d{3}-[0-9Xx]|\d{7,9}-[0-9Xx]|\d{8,9})(?!\d)"
+        padroes_ativos["RG"] = r"(?<!\d)(?:\d{1,2}\.\d{3}\.\d{3}-[0-9Xx]|\d{4}\.\d{3}-[0-9Xx]|\d{7,9}-[0-9Xx]|\d{8,9})(?!\d)"
+
+    # Adicionada a regra para o CNPJ (Aceita com pontuação padrão ou apenas os 14 dígitos diretos)
+    if tarjar_cnpj:
+        padroes_ativos["CNPJ"] = r"(?<!\d)(?:\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}|\d{14})(?!\d)"
 
     if lista_textos_manuais is None: 
         lista_textos_manuais = []
@@ -38,12 +42,10 @@ def processar_pdf_lgpd(caminho_entrada, tarjar_cpf=True, tarjar_email=True, tarj
                 ocorrencias = list(set(re.findall(padrao, texto_pagina)))
                 for oco in ocorrencias:
                     
-                    # ── REGRA DE EXCEÇÃO PARA MATRÍCULA ──────────────────────────────
-                    # Se for detectado como RG, mas tiver o formato exato das 
-                    # matrículas da prefeitura (ex: 1.243.240-0), ele ignora.
-                    if categoria == "RG" and re.fullmatch(r"1\.\d{3}\.\d{3}-\d", oco):
-                        continue # Pula para o próximo e não tarja
-                    # ─────────────────────────────────────────────────────────────────
+                    # ── REGRA DE EXCEÇÃO INTELIGENTE PARA MATRÍCULAS NITTRANS ──────
+                    if categoria == "RG" and re.fullmatch(r"1\.?\d{3}\.?\d{3}-\d", oco):
+                        continue # Ignora se for a matrícula do servidor
+                    # ───────────────────────────────────────────────────────────────
 
                     areas = pagina.search_for(oco)
                     for area in areas:
