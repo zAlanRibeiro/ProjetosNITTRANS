@@ -229,7 +229,7 @@ class HubApp(ctk.CTk):
 
         self.btn_exportar = ctk.CTkButton(
             self, text="💾   Exportar Arquivo Pronto", fg_color=COR_SUCESSO, hover_color="#047857",
-            text_color="white", height=45, corner_radius=6, font=(FONTE, 14, "bold"), bg_color=COR_VIDRO_BLENDED
+            text_color="white", height=45, width=420, corner_radius=6, font=(FONTE, 14, "bold"), bg_color=COR_VIDRO_BLENDED
         )
 
         # ── Rodapé ────────────────────────────────────────────────────────────
@@ -279,7 +279,7 @@ class HubApp(ctk.CTk):
         self._progress_val  = 0.0
         self.progress_bar.set(0)
         # [MODIFICADO] y da barra alterado de 615 para 670
-        self.progress_bar.place(x=20, y=670, width=420)
+        self.progress_bar.place(x=20, y=670)
         self._tick_spinner(nome)
         self._tick_progress()
 
@@ -340,7 +340,7 @@ class HubApp(ctk.CTk):
         self.canvas.itemconfig(self.id_status, text=f"✔  Concluído em {tempo} — {pasta}", fill="#4ADE80")
         self.btn_exportar.configure(command=lambda: self.executar_exportacao(pasta))
         # [MODIFICADO] y do botão exportar alterado de 645 para 700
-        self.btn_exportar.place(x=20, y=700, width=420)
+        self.btn_exportar.place(x=20, y=700)
 
     def ao_dar_erro(self, erro):
         self.after(0, self._exibir_erro, erro)
