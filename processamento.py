@@ -3,6 +3,7 @@ import shutil
 import threading
 import platform
 import sys
+import time
 from tkinter import filedialog
 
 from LatitudeLongitude.enderecos import processar_sistema_pastas as _fn_enderecos
@@ -54,8 +55,14 @@ class GerenciadorProcessos:
         caminho_da_pasta = os.path.join(obter_diretorio_base(), pasta)
         pasta_entrada = os.path.join(caminho_da_pasta, "entrada")
 
-        if not os.path.exists(pasta_entrada):
-            os.makedirs(pasta_entrada)
+        os.makedirs(pasta_entrada, exist_ok=True)
+
+        # Limpa a pasta de entrada antes de copiar o novo arquivo, para não
+        # reprocessar arquivos de execuções anteriores que ficaram acumulados.
+        for f in os.listdir(pasta_entrada):
+            caminho_f = os.path.join(pasta_entrada, f)
+            if os.path.isfile(caminho_f):
+                os.remove(caminho_f)
 
         try:
             shutil.copy(caminho_arquivo_origem, pasta_entrada)
@@ -77,28 +84,27 @@ class GerenciadorProcessos:
         dir_original     = os.getcwd()
         pasta_resultados = os.path.join(caminho_da_pasta, "resultados")
 
-        # Snapshot antes de processar
-        arquivos_antes = set()
-        if os.path.exists(pasta_resultados):
-            arquivos_antes = {
-                f for f in os.listdir(pasta_resultados)
-                if not f.startswith("progresso")
-            }
+        # Marca o instante em que o processamento começa. Em vez de comparar
+        # nomes de arquivo (que falha quando o arquivo de saída é sobrescrito
+        # com o mesmo nome de uma execução anterior), consideramos "gerado
+        # com sucesso" qualquer arquivo em resultados/ cujo horário de
+        # modificação seja posterior a este instante.
+        inicio = time.time()
 
         try:
             os.chdir(caminho_da_pasta)
             FERRAMENTAS[nome_do_arquivo]()
 
-            # Verifica se algum arquivo novo foi gerado
-            arquivos_depois = set()
+            arquivos_gerados = []
             if os.path.exists(pasta_resultados):
-                arquivos_depois = {
-                    f for f in os.listdir(pasta_resultados)
-                    if not f.startswith("progresso")
-                }
+                for f in os.listdir(pasta_resultados):
+                    if f.startswith("progresso"):
+                        continue
+                    caminho_f = os.path.join(pasta_resultados, f)
+                    if os.path.isfile(caminho_f) and os.path.getmtime(caminho_f) >= inicio:
+                        arquivos_gerados.append(f)
 
-            novos = arquivos_depois - arquivos_antes
-            if novos:
+            if arquivos_gerados:
                 self.callback_sucesso(pasta)
             else:
                 self.callback_erro(
