@@ -169,9 +169,13 @@ def ler_csv_seguro(caminho):
     for sep in SEPARADORES:
         for enc in ENCODINGS:
             try:
+                # Alterações de segurança: 
+                # 1. on_bad_lines="warn" para alertar sobre quebras em vez de apagar em silêncio.
+                # 2. quotechar='"' para entender os blocos de texto do agente.
+                # 3. Omitido engine="python" para usar o motor C nativo, que lê os Enters perfeitamente.
                 df = pd.read_csv(
                     caminho, sep=sep, encoding=enc,
-                    on_bad_lines="skip", dtype=str, engine="python"
+                    on_bad_lines="warn", dtype=str, quotechar='"'
                 )
                 valido, _ = validar_dataframe(df)
                 if valido:
