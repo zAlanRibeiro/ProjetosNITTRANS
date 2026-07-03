@@ -42,7 +42,8 @@ DICAS = {
     "pdfDeferidoIndeferido.py": "Extrai processos deferidos/indeferidos de PDFs do sistema GAIDE.",
     "processosAbertos.py":      "Lê relatórios PDF de Processos Abertos 1ª Instância e exporta para Excel.",
     "criptografia":             "Criptografa arquivos com AES-256-GCM e gera HTML autocontido com senha.",
-    "tarjar":                   "Oculta CPFs, e-mails e telefones de PDFs para adequação à LGPD." # [NOVO] Dica adicionada
+    "tarjar":                   "Oculta CPFs, e-mails e telefones de PDFs para adequação à LGPD.", # [NOVO] Dica adicionada
+    "sei_estatisticas":         "Extrai dados de tabelas de estatísticas do SEI para Excel."
 }
 
 
@@ -188,6 +189,7 @@ class HubApp(ctk.CTk):
             ("4. Organizador Detran Limpo", "DetranLimpo",         "detranLimpo.py"),
             ("5. PDF e Excel Multas",       "PdfExcelMultas",      "pdfDeferidoIndeferido.py"),
             ("6. Processos Abertos",        "ProcessosAbertos",    "processosAbertos.py"),
+            ("7. Estatísticas SEI", "EstatisticasSEI", "sei_estatisticas"),
         ]
         
         start_y = 175
@@ -196,14 +198,14 @@ class HubApp(ctk.CTk):
             self._criar_botao_flutuante(nome, pasta, script, y_pos)
 
         # ── Área de Segurança ─────────────────────────────────────────────────
-        sep_y = 495
+        sep_y = 545
         # Linha branca e Texto desenhados diretamente
         self.canvas.create_line(20, sep_y, 440, sep_y, fill="#FFFFFF", width=2)
         self.canvas.create_text(20, sep_y + 15, text="Segurança", font=(FONTE, 11, "bold"), fill="#FFFFFF", anchor="w")
 
         # Botão 7: Criptografia
         btn_c = ctk.CTkButton(
-            self, text="  7. Criptografar Arquivos", anchor="w", height=45, width=420, corner_radius=10,
+            self, text="  8. Criptografar Arquivos", anchor="w", height=45, width=420, corner_radius=10,
             font=(FONTE, 13, "bold"), fg_color=COR_LARANJA, hover_color=COR_LARANJA_HOVER, text_color="#FFFFFF",
             bg_color=COR_VIDRO_BLENDED, command=self._abrir_criptografia
         )
@@ -212,7 +214,7 @@ class HubApp(ctk.CTk):
 
         # [NOVO] Botão 8: Tarjar PDF (Posicionado 52 pixels abaixo do botão 7)
         btn_t = ctk.CTkButton(
-            self, text="  8. Tarjar PDF", anchor="w", height=45, width=420, corner_radius=10,
+            self, text="  9. Tarjar PDF", anchor="w", height=45, width=420, corner_radius=10,
             font=(FONTE, 13, "bold"), fg_color=COR_LARANJA, hover_color=COR_LARANJA_HOVER, text_color="#FFFFFF",
             bg_color=COR_VIDRO_BLENDED, command=self._abrir_tarjar
         )

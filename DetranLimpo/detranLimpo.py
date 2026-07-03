@@ -50,10 +50,9 @@ _RE_CRUZAMENTO = re.compile(
 
 # Prefixo inválido antes de tipo de logradouro: "ZRUA" → "RUA", "BAV" → "AV"
 _RE_PREFIXO = re.compile(
-    r'^[A-Z]{1,3}(?=RUA\b|AV\b|AVENIDA\b|AL\b|ALAMEDA\b|TRAVESSA\b|ESTRADA\b|PRAC[AÇ])',
+    r'^[A-Z]{1,3}(?=\b(?:RUA|AV|AVENIDA|AL|ALAMEDA|TRAVESSA|ESTRADA|PRACA)\b)',
     re.IGNORECASE
 )
-
 # ─── Estado global do geocoder ────────────────────────────────────────────────
 _geocode_fn  = None
 _cache_ruas  = {}
@@ -68,16 +67,10 @@ def _carregar_cache():
     if CACHE_FILE.exists():
         try:
             with open(CACHE_FILE, 'r', encoding='utf-8') as f:
-                raw = json.load(f)
-            # Auto-cura: re-chaveado e valores limpos
-            _cache_ruas = {}
-            for k, v in raw.items():
-                chave = limpar_logradouro(k).upper().strip()
-                valor = limpar_logradouro(v) if v.upper().strip() == k.upper().strip() else v
-                if chave:
-                    _cache_ruas[chave] = valor
-            print(f'  Cache de ruas: {len(_cache_ruas)} entradas carregadas.')
-        except Exception:
+                _cache_ruas = json.load(f) # Carregamento direto, sem loop de auto-cura
+            print(f'  Cache carregado: {len(_cache_ruas)} ruas prontas.')
+        except Exception as e:
+            print(f"  Erro ao carregar cache: {e}")
             _cache_ruas = {}
 
 
@@ -99,6 +92,8 @@ def _get_geocode():
 
 
 def _corrigir_por_api(rua):
+    if len(rua) < 10 or ' ' not in rua:
+        return rua
     """Consulta Nominatim e devolve o nome oficial da rua em Niterói/RJ."""
     if not rua or len(rua) < 4:
         return rua
@@ -124,34 +119,46 @@ def _corrigir_por_api(rua):
 
 
 def limpar_logradouro(texto):
-    """Limpa um endereço removendo número, sufixos e corrigindo prefixo."""
+    """Limpa um endereço e aplica o formato de Primeira Letra Maiúscula."""
     texto = str(texto).strip()
     if not texto or texto.lower() == 'nan':
         return ''
 
+    # ... (suas limpezas de regex existentes aqui: _RE_SUFIXO, _RE_PREFIXO, etc.)
     limpo = _RE_SUFIXO.sub('', texto).strip()
     limpo = _RE_PROXIMO.sub('', limpo).strip()
     limpo = _RE_NUM_ABREV.sub('', limpo).strip()
     limpo = _RE_CRUZAMENTO.sub('', limpo).strip()
     limpo = _RE_PREFIXO.sub('', limpo).strip()
+    
+    # 1. Aplica o formato Title Case (Primeira letra maiúscula)
+    # O .title() do Python às vezes falha com nomes como "Rua De" 
+    # (ele colocaria "Rua De" em vez de "Rua de").
+    # Uma forma melhor é usar .capitalize() para cada palavra:
+    palavras = limpo.lower().split()
+    limpo = " ".join([p.capitalize() for p in palavras])
 
-    # Faixa: "151 AO 251"
-    m = re.match(r'^(.*?),?\s*(\d+\s+[Aa][Oo]\s+\d+)\s*$', limpo)
-    if m:
-        return re.sub(r'\s+N\.?\s*$', '', m.group(1).strip(), flags=re.IGNORECASE)
-
-    # Número simples no final: "123", "45A", "12-B"
-    m = re.match(r'^(.*?),?\s*(\d+[\w-]*)\s*$', limpo)
-    if m:
-        return re.sub(r'\s+N\.?\s*$', '', m.group(1).strip(), flags=re.IGNORECASE)
-
-    return limpo
-
+    # 2. Correção de exceções específicas (opcional)
+    # Isso garante que "De", "Da", "Do" fiquem em minúsculo, mantendo o padrão brasileiro
+    excecoes = ["De", "Da", "Do", "Das", "Dos", "Em"]
+    final = []
+    for i, p in enumerate(palavras):
+        palavra_formatada = p.capitalize()
+        if i > 0 and palavra_formatada in excecoes:
+            final.append(palavra_formatada.lower())
+        else:
+            final.append(palavra_formatada)
+            
+    return " ".join(final).strip()
 
 def _encontrar_coluna(df):
+    """Verifica colunas de forma flexível: aceita qualquer termo relacionado a endereço."""
+    termos_busca = ['ender', 'logradouro', 'rua', 'local']
     for col in df.columns:
         n = _normalizar(col)
-        if ('descri' in n or 'munic' in n) and 'ender' in n:
+        # Se qualquer termo de busca estiver no nome da coluna, ela é aceita
+        if any(termo in n for termo in termos_busca):
+            print(f"  Coluna '{col}' aceita.") # Feedback visual no terminal
             return col
     return None
 
@@ -196,7 +203,6 @@ def rodar_detran_limpo():
             col = _encontrar_coluna(df)
             if not col:
                 print(f"  Coluna de endereço não encontrada.")
-                print(f"  Colunas: {list(df.columns)}")
                 continue
 
             print(f"  Coluna encontrada: '{col}'")
@@ -204,42 +210,14 @@ def rodar_detran_limpo():
             # Passo 1 — limpeza local (regex)
             rua_limpa = df[col].apply(limpar_logradouro)
 
-            # Passo 2 — correção via API (apenas se geopy disponível)
-            if _GEOPY_OK:
-                unicas = [r for r in rua_limpa.dropna().unique() if r and len(r) >= 4]
-                total = len(unicas)
-                print(f"  Consultando API para {total} rua(s) única(s)...")
-
-                progresso_path = PASTA_SAIDA / 'progresso_api.txt'
-                mapa = {}
-                for i, rua in enumerate(unicas, 1):
-                    mapa[rua] = _corrigir_por_api(rua)
-
-                    # Atualiza arquivo de progresso a cada rua
-                    try:
-                        progresso_path.write_text(
-                            f"Processando via API...\n"
-                            f"{i} de {total} ruas consultadas\n"
-                            f"Ultima: {rua}\n",
-                            encoding='utf-8'
-                        )
-                    except Exception:
-                        pass
-
-                    # Salva cache a cada 50 ruas
-                    if i % 50 == 0:
-                        _salvar_cache()
-                        print(f"  {i}/{total} ruas consultadas...")
-
-                rua_limpa = rua_limpa.map(lambda r: mapa.get(r, r))
-                _salvar_cache()
-
-                try:
-                    progresso_path.write_text("Consulta API concluida!\n", encoding='utf-8')
-                except Exception:
-                    pass
-            else:
-                print("  geopy não disponível — usando apenas limpeza local.")
+            # Passo 2 — Mapeamento via Cache (Sem API para evitar erro 429)
+            unicas = [r for r in rua_limpa.dropna().unique() if r and len(r) >= 4]
+            print(f"  Aplicando cache existente para {len(unicas)} ruas...")
+            
+            mapa = {rua: _cache_ruas.get(rua.upper().strip(), rua) for rua in unicas}
+            rua_limpa = rua_limpa.map(lambda r: mapa.get(r, r))
+            
+            print("  Aplicação do cache concluída.")
 
             # Insere ou sobrescreve coluna "Rua"
             col_rua = next((c for c in df.columns if _normalizar(c) == 'rua'), None)
@@ -257,7 +235,7 @@ def rodar_detran_limpo():
             shutil.move(str(arquivo), str(PASTA_BACKUP / arquivo.name))
 
         except Exception as e:
-            print(f"  Erro: {e}")
+            print(f"  Erro no processamento: {e}")
 
     print("\nConcluído.")
 
