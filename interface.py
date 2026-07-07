@@ -102,8 +102,8 @@ class HubApp(ctk.CTk):
 
         ctk.set_appearance_mode("light")
         self.configure(fg_color=COR_VIDRO_BLENDED) 
-        # [MODIFICADO] Altura aumentada de 730 para 785 para caber o novo botão perfeitamente
-        self.geometry("460x785") 
+        # [MODIFICADO] Altura esticada para 820 para dar "respiro" no layout
+        self.geometry("460x820") 
         self.resizable(False, False)
         self.title("Hub de Ferramentas — NITTRANS")
 
@@ -128,8 +128,8 @@ class HubApp(ctk.CTk):
         base = obter_diretorio_base()
         
         # ── A MÁGICA DA TRANSPARÊNCIA: O CANVAS ────────────────────────────────
-        # [MODIFICADO] Altura do canvas ajustada para 785
-        self.canvas = tk.Canvas(self, width=460, height=785, bg=COR_VIDRO_BLENDED, highlightthickness=0)
+        # [MODIFICADO] Altura do canvas ajustada para 820
+        self.canvas = tk.Canvas(self, width=460, height=820, bg=COR_VIDRO_BLENDED, highlightthickness=0)
         self.canvas.place(x=0, y=0)
 
         # ── IMAGEM DE FUNDO ───────────────────────────────────────────────────
@@ -139,14 +139,14 @@ class HubApp(ctk.CTk):
                 try:
                     img_original = Image.open(caminho_fundo).convert("RGBA")
                     # [MODIFICADO] Resize ajustado para acompanhar a nova altura
-                    img_original = img_original.resize((460, 785), Image.LANCZOS)
+                    img_original = img_original.resize((460, 820), Image.LANCZOS)
 
                     camada_overlay = Image.new("RGBA", img_original.size, (0, 0, 0, 0))
                     draw = ImageDraw.Draw(camada_overlay)
 
-                    # Caixa semi-transparente do vidro (Aumentada até 745)
+                    # Caixa semi-transparente do vidro (Aumentada até 780)
                     cor_azul_nittrans_transparente = (8, 25, 55, 110) 
-                    draw.rounded_rectangle((10, 100, 450, 745), radius=15, fill=cor_azul_nittrans_transparente)
+                    draw.rounded_rectangle((10, 100, 450, 780), radius=15, fill=cor_azul_nittrans_transparente)
 
                     img_mesclada = Image.alpha_composite(img_original, camada_overlay)
 
@@ -183,27 +183,28 @@ class HubApp(ctk.CTk):
 
         # ── Botões das Ferramentas (Flutuando sobre o Canvas) ─────────────────
         tools = [
-            ("1. Latitude e Longitude",    "LatitudeLongitude",   "enderecos.py"),
-            ("2. Limpeza de Arquivos",      "LimpezaArquivo",      "limpeza.py"),
-            ("3. Organizador Txt Detran",   "OrganizadorTxtDetran","decifradorTxt.py"),
-            ("4. Organizador Detran Limpo", "DetranLimpo",         "detranLimpo.py"),
-            ("5. PDF e Excel Multas",       "PdfExcelMultas",      "pdfDeferidoIndeferido.py"),
-            ("6. Processos Abertos",        "ProcessosAbertos",    "processosAbertos.py"),
-            ("7. Estatísticas SEI", "EstatisticasSEI", "sei_estatisticas"),
+            ("1. Latitude e Longitude",    "LatitudeLongitude",   "enderecos.py",             "normal"),
+            ("2. Limpeza de Arquivos",     "LimpezaArquivo",      "limpeza.py",               "normal"),
+            ("3. Organizador Txt Detran",  "OrganizadorTxtDetran","decifradorTxt.py",         "normal"),
+            ("4. Organizador Detran Limpo","DetranLimpo",         "detranLimpo.py",           "normal"),
+            ("5. PDF e Excel Multas",      "PdfExcelMultas",      "pdfDeferidoIndeferido.py", "normal"),
+            ("6. Processos Abertos",       "ProcessosAbertos",    "processosAbertos.py",      "normal"),
+            ("7. Estatísticas SEI",        "EstatisticasSEI",     "sei_estatisticas",         "normal"),
         ]
         
         start_y = 175
-        for i, (nome, pasta, script) in enumerate(tools):
+        for i, (nome, pasta, script, estado) in enumerate(tools):
             y_pos = start_y + (i * 52) 
-            self._criar_botao_flutuante(nome, pasta, script, y_pos)
+            self._criar_botao_flutuante(nome, pasta, script, y_pos, estado)
 
         # ── Área de Segurança ─────────────────────────────────────────────────
-        sep_y = 545
+        # [MODIFICADO] Linha divisória rebaixada para dar margem
+        sep_y = 560
         # Linha branca e Texto desenhados diretamente
         self.canvas.create_line(20, sep_y, 440, sep_y, fill="#FFFFFF", width=2)
         self.canvas.create_text(20, sep_y + 15, text="Segurança", font=(FONTE, 11, "bold"), fill="#FFFFFF", anchor="w")
 
-        # Botão 7: Criptografia
+        # Botão 8: Criptografia (Ex 7)
         btn_c = ctk.CTkButton(
             self, text="  8. Criptografar Arquivos", anchor="w", height=45, width=420, corner_radius=10,
             font=(FONTE, 13, "bold"), fg_color=COR_LARANJA, hover_color=COR_LARANJA_HOVER, text_color="#FFFFFF",
@@ -212,7 +213,7 @@ class HubApp(ctk.CTk):
         btn_c.place(x=20, y=sep_y + 35)
         _Tooltip(btn_c, DICAS["criptografia"])
 
-        # [NOVO] Botão 8: Tarjar PDF (Posicionado 52 pixels abaixo do botão 7)
+        # Botão 9: Tarjar PDF (Ex 8)
         btn_t = ctk.CTkButton(
             self, text="  9. Tarjar PDF", anchor="w", height=45, width=420, corner_radius=10,
             font=(FONTE, 13, "bold"), fg_color=COR_LARANJA, hover_color=COR_LARANJA_HOVER, text_color="#FFFFFF",
@@ -222,11 +223,11 @@ class HubApp(ctk.CTk):
         _Tooltip(btn_t, DICAS["tarjar"])
 
         # ── Status e Progresso (Textos Nativos do Canvas) ─────────────────────
-        # [MODIFICADO] Descidos em 55 pixels para acompanhar o novo layout
-        self.id_spinner = self.canvas.create_text(20, 650, text="", font=(FONTE, 13, "bold"), fill="#FFB347", anchor="w")
-        self.id_status = self.canvas.create_text(20, 670, text="", font=(FONTE, 12), fill="#FFFFFF", anchor="nw", width=420)
+        # [MODIFICADO] Descidos bastante (de 650 para 700) para criar o "respiro"
+        self.id_spinner = self.canvas.create_text(20, 700, text="", font=(FONTE, 13, "bold"), fill="#FFB347", anchor="w")
+        self.id_status = self.canvas.create_text(20, 715, text="", font=(FONTE, 12), fill="#FFFFFF", anchor="nw", width=420)
 
-        self.progress_bar = ctk.CTkProgressBar(self, mode="determinate", progress_color=COR_LARANJA, fg_color="#FFFFFF", height=8, corner_radius=4, bg_color=COR_VIDRO_BLENDED)
+        self.progress_bar = ctk.CTkProgressBar(self, mode="determinate", progress_color=COR_LARANJA, fg_color="#FFFFFF", height=8, corner_radius=4, bg_color=COR_VIDRO_BLENDED, width=420)
         self.progress_bar.set(0)
 
         self.btn_exportar = ctk.CTkButton(
@@ -235,9 +236,9 @@ class HubApp(ctk.CTk):
         )
 
         # ── Rodapé ────────────────────────────────────────────────────────────
-        # [MODIFICADO] Descido para a nova base da tela (750 a 785)
-        self.canvas.create_rectangle(0, 750, 460, 785, fill="#0A1E3F", outline="")
-        self.canvas.create_text(230, 767, text="NITTRANS  ·  Niterói Transporte e Trânsito  ·  Prefeitura Municipal de Niterói", 
+        # [MODIFICADO] Descido para a nova base da tela (785 a 820)
+        self.canvas.create_rectangle(0, 785, 460, 820, fill="#0A1E3F", outline="")
+        self.canvas.create_text(230, 802, text="NITTRANS  ·  Niterói Transporte e Trânsito  ·  Prefeitura Municipal de Niterói", 
                                 font=(FONTE, 9), fill="#FFFFFF", anchor="center")
 
         # ── Variáveis de Estado ───────────────────────────────────────────────
@@ -248,12 +249,13 @@ class HubApp(ctk.CTk):
         self._progress_val   = 0.0
         self._pasta_atual    = ""
 
-    def _criar_botao_flutuante(self, nome, pasta, script, y_pos):
+    def _criar_botao_flutuante(self, nome, pasta, script, y_pos, estado="normal"):
         btn = ctk.CTkButton(
             self, text=f"  {nome}", anchor="w", height=45, width=370, corner_radius=10,
             font=(FONTE, 13, "bold"), fg_color=COR_LARANJA, hover_color=COR_LARANJA_HOVER,
             text_color="#FFFFFF", bg_color=COR_VIDRO_BLENDED,
-            command=lambda p=pasta, s=script: self.preparar_ferramenta(p, s)
+            command=lambda p=pasta, s=script: self.preparar_ferramenta(p, s),
+            state=estado
         )
         btn.place(x=20, y=y_pos)
         if script in DICAS: _Tooltip(btn, DICAS[script])
@@ -262,7 +264,8 @@ class HubApp(ctk.CTk):
             self, text="📁", width=45, height=45, corner_radius=10,
             fg_color="transparent", bg_color=COR_VIDRO_BLENDED, border_width=1, border_color="#FFFFFF",
             hover_color=COR_PASTA_HOVER, text_color="#FFFFFF", font=(FONTE, 16),
-            command=lambda p=pasta: self.logica.abrir_pasta(p)
+            command=lambda p=pasta: self.logica.abrir_pasta(p),
+            state=estado 
         )
         btn_pasta.place(x=395, y=y_pos)
 
@@ -270,9 +273,7 @@ class HubApp(ctk.CTk):
         from Criptografia.gui import AppToplevel
         AppToplevel(self)
 
-    # [NOVO] Função para chamar a janela de Tarjar
     def _abrir_tarjar(self):
-        # A importação já foi feita no topo do arquivo
         JanelaHigienizar(self)
 
     def _iniciar_animacao(self, nome):
@@ -280,8 +281,8 @@ class HubApp(ctk.CTk):
         self._spinner_idx   = 0
         self._progress_val  = 0.0
         self.progress_bar.set(0)
-        # [MODIFICADO] y da barra alterado de 615 para 670
-        self.progress_bar.place(x=20, y=670)
+        # [MODIFICADO] Barra de progresso reposicionada para acompanhar o novo layout
+        self.progress_bar.place(x=20, y=715)
         self._tick_spinner(nome)
         self._tick_progress()
 
@@ -292,7 +293,6 @@ class HubApp(ctk.CTk):
         tempo = f"{mins}m {secs:02d}s" if mins else f"{secs}s"
         pct   = int(self._progress_val * 100)
         
-        # Atualiza o texto desenhado no Canvas
         self.canvas.itemconfig(self.id_spinner, text=f"{frame}  Processando {nome}...  {pct}%  ({tempo})")
         
         self._spinner_idx  += 1
@@ -341,8 +341,8 @@ class HubApp(ctk.CTk):
         
         self.canvas.itemconfig(self.id_status, text=f"✔  Concluído em {tempo} — {pasta}", fill="#4ADE80")
         self.btn_exportar.configure(command=lambda: self.executar_exportacao(pasta))
-        # [MODIFICADO] y do botão exportar alterado de 645 para 700
-        self.btn_exportar.place(x=20, y=700)
+        # [MODIFICADO] Botão de Exportar centralizado com espaçamento
+        self.btn_exportar.place(x=20, y=735)
 
     def ao_dar_erro(self, erro):
         self.after(0, self._exibir_erro, erro)
