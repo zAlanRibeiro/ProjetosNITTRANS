@@ -2,6 +2,41 @@
 import fitz  # PyMuPDF
 import re
 import os
+import sys
+
+def _configurar_tesseract_local():
+    """
+    Aponta o PyMuPDF para a pasta 'tesseract' embutida dentro do projeto,
+    em vez de depender de uma instalação do Tesseract no sistema.
+
+    Funciona em dois cenários:
+    - Rodando com 'python main.py' (dev): a pasta 'tesseract' fica ao lado do script.
+    - Rodando como .exe gerado pelo PyInstaller: os arquivos ficam extraídos em
+      uma pasta temporária apontada por sys._MEIPASS.
+    """
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        # Executando como .exe (PyInstaller)
+        base_dir = sys._MEIPASS
+    else:
+        # Executando como script Python normal
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+
+    pasta_tesseract = os.path.join(base_dir, "tesseract")
+    pasta_tessdata = os.path.join(pasta_tesseract, "tessdata")
+
+    if os.path.isdir(pasta_tessdata):
+        # tessdata: onde ficam os arquivos .traineddata (por.traineddata, eng.traineddata)
+        os.environ["TESSDATA_PREFIX"] = pasta_tessdata
+        # PATH: para o Windows encontrar as DLLs do Tesseract (libtesseract, leptonica etc.)
+        os.environ["PATH"] = pasta_tesseract + os.pathsep + os.environ.get("PATH", "")
+    else:
+        print(
+            f"Aviso: pasta 'tesseract/tessdata' não encontrada em {pasta_tesseract}. "
+            "O OCR em PDFs escaneados não vai funcionar. "
+            "Copie a pasta do Tesseract-OCR para dentro do projeto (veja instruções)."
+        )
+
+_configurar_tesseract_local()
 
 def processar_pdf_lgpd(caminho_entrada, tarjar_cpf=True, tarjar_email=True, tarjar_rg=True, lista_textos_manuais=None, tarjar_cnpj=False):
     if not caminho_entrada or not os.path.exists(caminho_entrada):
@@ -36,10 +71,13 @@ def processar_pdf_lgpd(caminho_entrada, tarjar_cpf=True, tarjar_email=True, tarj
         for pagina in doc:
             
             # ── ENCAPSULAMENTO DA LÓGICA DE BUSCA E TARJA ──
-            def buscar_e_tarjar():
+            # Agora aceita uma "textpage" opcional (usada para injetar o resultado do OCR).
+            # Sem isso, get_text()/search_for() sempre leem a camada de texto nativa,
+            # que é vazia em PDFs escaneados — por isso o OCR nunca era de fato usado.
+            def buscar_e_tarjar(textpage=None):
                 tarjas_encontradas = 0
-                texto_pagina = pagina.get_text("text")
-                palavras_da_pagina = pagina.get_text("words")
+                texto_pagina = pagina.get_text("text", textpage=textpage)
+                palavras_da_pagina = pagina.get_text("words", textpage=textpage)
                 
                 # 1. Automático (Regex)
                 for categoria, padrao in padroes_ativos.items():
@@ -51,7 +89,7 @@ def processar_pdf_lgpd(caminho_entrada, tarjar_cpf=True, tarjar_email=True, tarj
                             continue # Ignora se for a matrícula do servidor
                         # ───────────────────────────────────────────────────────────────
 
-                        areas = pagina.search_for(oco)
+                        areas = pagina.search_for(oco, textpage=textpage)
                         for area in areas:
                             pagina.add_redact_annot(area, fill=(0, 0, 0))
                             tarjas_encontradas += 1
@@ -70,7 +108,7 @@ def processar_pdf_lgpd(caminho_entrada, tarjar_cpf=True, tarjar_email=True, tarj
                                 pagina.add_redact_annot(area_palavra, fill=(0, 0, 0))
                                 tarjas_encontradas += 1
                     else:
-                        areas = pagina.search_for(termo)
+                        areas = pagina.search_for(termo, textpage=textpage)
                         for area in areas:
                             pagina.add_redact_annot(area, fill=(0, 0, 0))
                             tarjas_encontradas += 1
@@ -81,14 +119,26 @@ def processar_pdf_lgpd(caminho_entrada, tarjar_cpf=True, tarjar_email=True, tarj
             tarjas_na_pagina, texto_extraido = buscar_e_tarjar()
             
             # ── MÉTODO 2: FALLBACK PARA OCR (IMAGENS) ──
-            # Aciona apenas se não achar nada E a página não tiver texto extraível legível (< 50 caracteres)
-            if tarjas_na_pagina == 0 and len(texto_extraido.strip()) < 50:
+            # Aciona sempre que a página não tiver texto extraível legível (< 50 caracteres),
+            # independente de já ter achado algo no Método 1 (uma página pode ter um pouco de
+            # texto nativo E uma imagem escaneada com mais dados sensíveis dentro dela).
+            if len(texto_extraido.strip()) < 50:
                 try:
-                    # Roda o OCR na página para construir as coordenadas fantasma
-                    pagina.get_textpage_ocr(language="por")
-                    
-                    # Tenta realizar a busca de novo, agora com o OCR ativo
-                    tarjas_na_pagina, _ = buscar_e_tarjar()
+                    # Roda o OCR na página e GUARDA o textpage retornado — este era o bug:
+                    # antes o resultado do OCR era descartado e as buscas seguintes
+                    # continuavam lendo a camada nativa (vazia).
+                    # dpi mais alto = OCR mais preciso em digitalizações.
+                    # full=True força o OCR na página inteira (não só em áreas sem texto).
+                    textpage_ocr = pagina.get_textpage_ocr(
+                        language="por",
+                        dpi=300,
+                        full=True,
+                        tessdata=os.environ.get("TESSDATA_PREFIX"),
+                    )
+
+                    # Busca de novo, agora passando explicitamente o textpage com OCR.
+                    tarjas_ocr, _ = buscar_e_tarjar(textpage=textpage_ocr)
+                    tarjas_na_pagina += tarjas_ocr
                 except Exception as e:
                     print(f"Aviso: Não foi possível realizar OCR na página {pagina.number}. Erro: {e}")
 
