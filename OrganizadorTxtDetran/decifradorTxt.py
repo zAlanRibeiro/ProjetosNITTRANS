@@ -120,9 +120,16 @@ def processar_arquivos():
                 dados_normalizados.append(registro)
 
             df = pd.DataFrame(dados_normalizados)
+
+            total_antes = len(df)
+            df = df.drop_duplicates()
+            duplicadas_removidas = total_antes - len(df)
+
             df.to_excel(caminho_excel, index=False)
             print(f"\nSUCESSO: '{nome_arquivo}' convertido!")
             print(f"{len(df)} registros processados.")
+            if duplicadas_removidas > 0:
+                print(f"{duplicadas_removidas} linha(s) duplicada(s) removida(s).")
 
             caminho_backup = os.path.join(PASTA_BACKUP, nome_arquivo)
             if os.path.exists(caminho_backup):
