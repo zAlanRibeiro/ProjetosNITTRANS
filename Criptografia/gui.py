@@ -31,7 +31,7 @@ _ERRO     = "#F87171"
 _FONTE    = "Segoe UI"
 
 TIPOS_ABRIR = [
-    ("Todos os arquivos suportados", "*.txt *.xlsx *.xls *.docx *.doc *.enc"),
+    ("Todos os arquivos suportados", "*.txt *.xlsx *.xls *.docx *.doc *.enc *.pdf"),
     ("Arquivos de texto", "*.txt"),
     ("Planilhas Excel", "*.xlsx *.xls"),
     ("Documentos Word", "*.docx *.doc"),
