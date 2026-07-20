@@ -190,6 +190,7 @@ class HubApp(ctk.CTk):
             ("5. PDF e Excel Multas",      "PdfExcelMultas",      "pdfDeferidoIndeferido.py", "normal"),
             ("6. Processos Abertos",       "ProcessosAbertos",    "processosAbertos.py",      "normal"),
             ("7. Estatísticas SEI",        "EstatisticasSEI",     "sei_estatisticas",         "normal"),
+            ("8. Mesclar e Remover Duplicadas",        "RemovedorDuplicadasDetran",     "removerDuplicada.py",         "normal"),
         ]
         
         start_y = 175
@@ -199,14 +200,14 @@ class HubApp(ctk.CTk):
 
         # ── Área de Segurança ─────────────────────────────────────────────────
         # [MODIFICADO] Linha divisória rebaixada para dar margem
-        sep_y = 560
+        sep_y = 612
         # Linha branca e Texto desenhados diretamente
         self.canvas.create_line(20, sep_y, 440, sep_y, fill="#FFFFFF", width=2)
         self.canvas.create_text(20, sep_y + 15, text="Segurança", font=(FONTE, 11, "bold"), fill="#FFFFFF", anchor="w")
 
         # Botão 8: Criptografia (Ex 7)
         btn_c = ctk.CTkButton(
-            self, text="  8. Criptografar Arquivos", anchor="w", height=45, width=420, corner_radius=10,
+            self, text="  9. Criptografar Arquivos", anchor="w", height=45, width=420, corner_radius=10,
             font=(FONTE, 13, "bold"), fg_color=COR_LARANJA, hover_color=COR_LARANJA_HOVER, text_color="#FFFFFF",
             bg_color=COR_VIDRO_BLENDED, command=self._abrir_criptografia
         )
@@ -215,7 +216,7 @@ class HubApp(ctk.CTk):
 
         # Botão 9: Tarjar PDF (Ex 8)
         btn_t = ctk.CTkButton(
-            self, text="  9. Tarjar PDF", anchor="w", height=45, width=420, corner_radius=10,
+            self, text="  10. Tarjar PDF", anchor="w", height=45, width=420, corner_radius=10,
             font=(FONTE, 13, "bold"), fg_color=COR_LARANJA, hover_color=COR_LARANJA_HOVER, text_color="#FFFFFF",
             bg_color=COR_VIDRO_BLENDED, command=self._abrir_tarjar
         )
@@ -224,8 +225,8 @@ class HubApp(ctk.CTk):
 
         # ── Status e Progresso (Textos Nativos do Canvas) ─────────────────────
         # [MODIFICADO] Descidos bastante (de 650 para 700) para criar o "respiro"
-        self.id_spinner = self.canvas.create_text(20, 700, text="", font=(FONTE, 13, "bold"), fill="#FFB347", anchor="w")
-        self.id_status = self.canvas.create_text(20, 715, text="", font=(FONTE, 12), fill="#FFFFFF", anchor="nw", width=420)
+        self.id_spinner = self.canvas.create_text(20, 752, text="", font=(FONTE, 13, "bold"), fill="#FFB347", anchor="w")
+        self.id_status = self.canvas.create_text(20, 767, text="", font=(FONTE, 12), fill="#FFFFFF", anchor="nw", width=420)
 
         self.progress_bar = ctk.CTkProgressBar(self, mode="determinate", progress_color=COR_LARANJA, fg_color="#FFFFFF", height=8, corner_radius=4, bg_color=COR_VIDRO_BLENDED, width=420)
         self.progress_bar.set(0)
@@ -237,8 +238,8 @@ class HubApp(ctk.CTk):
 
         # ── Rodapé ────────────────────────────────────────────────────────────
         # [MODIFICADO] Descido para a nova base da tela (785 a 820)
-        self.canvas.create_rectangle(0, 785, 460, 820, fill="#0A1E3F", outline="")
-        self.canvas.create_text(230, 802, text="NITTRANS  ·  Niterói Transporte e Trânsito  ·  Prefeitura Municipal de Niterói", 
+        self.canvas.create_rectangle(0, 837, 460, 872, fill="#0A1E3F", outline="")
+        self.canvas.create_text(230, 854, text="NITTRANS  ·  Niterói Transporte e Trânsito  ·  Prefeitura Municipal de Niterói", 
                                 font=(FONTE, 9), fill="#FFFFFF", anchor="center")
 
         # ── Variáveis de Estado ───────────────────────────────────────────────
@@ -282,7 +283,7 @@ class HubApp(ctk.CTk):
         self._progress_val  = 0.0
         self.progress_bar.set(0)
         # [MODIFICADO] Barra de progresso reposicionada para acompanhar o novo layout
-        self.progress_bar.place(x=20, y=715)
+        self.progress_bar.place(x=20, y=767)
         self._tick_spinner(nome)
         self._tick_progress()
 
@@ -342,7 +343,7 @@ class HubApp(ctk.CTk):
         self.canvas.itemconfig(self.id_status, text=f"✔  Concluído em {tempo} — {pasta}", fill="#4ADE80")
         self.btn_exportar.configure(command=lambda: self.executar_exportacao(pasta))
         # [MODIFICADO] Botão de Exportar centralizado com espaçamento
-        self.btn_exportar.place(x=20, y=735)
+        self.btn_exportar.place(x=20, y=787)
 
     def ao_dar_erro(self, erro):
         self.after(0, self._exibir_erro, erro)

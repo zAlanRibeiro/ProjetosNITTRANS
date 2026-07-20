@@ -7,6 +7,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
+        ('TarjarPDF/tesseract', 'TarjarPDF/tesseract'),
         ('FundoAplicativoNITTRANS.png', '.'), 
         ('LogoNittrans.jpeg', '.'),
         ('logo.ico', '.'),

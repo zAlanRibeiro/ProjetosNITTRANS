@@ -15,6 +15,7 @@ from OrganizadorTxtDetran.decifradorTxt import processar_arquivos as _fn_detran
 from PdfExcelMultas.pdfDeferidoIndeferido import rodar_automacao as _fn_pdf
 from ProcessosAbertos.processosAbertos import rodar_processos_abertos as _fn_processos
 from DetranLimpo.detranLimpo import rodar_detran_limpo as _fn_detran_limpo
+from RemovedorDuplicadasDetran.removerDuplicada import mesclar_arquivos_excel as _fn_remover_duplicadas
 
 def obter_diretorio_base():
     """Garante que o caminho raiz seja sempre a pasta onde o .exe ou .py está rodando."""
@@ -161,14 +162,25 @@ class GerenciadorProcessos:
             self.callback_erro("Aguarde o processamento atual terminar.")
             return
 
-        # 1. Abre a janela de seleção de arquivos
-        caminho_arquivo_origem = filedialog.askopenfilename(
-            title=f"Selecione o arquivo de ENTRADA para: {pasta}",
-            filetypes=[("Arquivos compatíveis", "*.xlsx *.xls *.csv *.pdf *.txt")]
-        )
-
-        if not caminho_arquivo_origem:
-            return
+        arquivos_para_copiar = []
+        
+        # 1. Abre a janela de seleção de arquivos (Múltipla ou Única)
+        if nome_do_arquivo == "removerDuplicada.py":
+            caminhos = filedialog.askopenfilenames(
+                title=f"Selecione os arquivos Excel para mesclar",
+                filetypes=[("Arquivos Excel", "*.xlsx *.xls")]
+            )
+            if not caminhos:
+                return # Usuário cancelou
+            arquivos_para_copiar = list(caminhos)
+        else:
+            caminho = filedialog.askopenfilename(
+                title=f"Selecione o arquivo de ENTRADA para: {pasta}",
+                filetypes=[("Arquivos compatíveis", "*.xlsx *.xls *.csv *.pdf *.txt")]
+            )
+            if not caminho:
+                return # Usuário cancelou
+            arquivos_para_copiar = [caminho]
 
         # 2. Define os caminhos absolutos
         caminho_da_pasta = os.path.join(obter_diretorio_base(), pasta)
@@ -185,9 +197,10 @@ class GerenciadorProcessos:
                 if os.path.isfile(caminho_antigo):
                     os.remove(caminho_antigo)
             
-            # Copia o arquivo selecionado para a pasta da ferramenta
-            shutil.copy(caminho_arquivo_origem, pasta_entrada)
-            print(f"DEBUG: Arquivo copiado com sucesso para {pasta_entrada}")
+            # Copia os arquivos selecionados para a pasta da ferramenta
+            for arq in arquivos_para_copiar:
+                shutil.copy(arq, pasta_entrada)
+                print(f"DEBUG: Arquivo copiado com sucesso para {pasta_entrada}")
             
             # 4. Inicia o processamento em background
             self._em_execucao = True
@@ -203,7 +216,7 @@ class GerenciadorProcessos:
         except Exception as e:
             print(f"ERRO CRÍTICO NO INICIAR_TAREFA: {e}")
             self._em_execucao = False
-            self.callback_erro(f"Erro ao preparar arquivo: {str(e)}")
+            self.callback_erro(f"Erro ao preparar arquivo(s): {str(e)}")
 
     def _executar_ferramenta(self, pasta, nome_do_arquivo, caminho_da_pasta):
         dir_original = os.getcwd()
@@ -278,4 +291,5 @@ FERRAMENTAS = {
     "processosAbertos.py":      _fn_processos,
     "detranLimpo.py":           _fn_detran_limpo,
     "sei_estatisticas":         ProcessadorSEI.rodar_sei_estatisticas,
+    "removerDuplicada.py":   _fn_remover_duplicadas,
 }

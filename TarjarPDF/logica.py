@@ -8,20 +8,16 @@ def _configurar_tesseract_local():
     """
     Aponta o PyMuPDF para a pasta 'tesseract' embutida dentro do projeto,
     em vez de depender de uma instalação do Tesseract no sistema.
-
-    Funciona em dois cenários:
-    - Rodando com 'python main.py' (dev): a pasta 'tesseract' fica ao lado do script.
-    - Rodando como .exe gerado pelo PyInstaller: os arquivos ficam extraídos em
-      uma pasta temporária apontada por sys._MEIPASS.
     """
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         # Executando como .exe (PyInstaller)
-        base_dir = sys._MEIPASS
+        # O hub.spec empacotou o tesseract dentro da subpasta TarjarPDF
+        pasta_tesseract = os.path.join(sys._MEIPASS, "TarjarPDF", "tesseract")
     else:
-        # Executando como script Python normal
+        # Executando como script Python normal (modo de desenvolvimento)
         base_dir = os.path.dirname(os.path.abspath(__file__))
+        pasta_tesseract = os.path.join(base_dir, "tesseract")
 
-    pasta_tesseract = os.path.join(base_dir, "tesseract")
     pasta_tessdata = os.path.join(pasta_tesseract, "tessdata")
 
     if os.path.isdir(pasta_tessdata):
@@ -56,7 +52,9 @@ def processar_pdf_lgpd(caminho_entrada, tarjar_cpf=True, tarjar_email=True, tarj
         padroes_ativos["E-mail"] = r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b"
         
     if tarjar_rg: 
-        padroes_ativos["RG"] = r"(?<!\d)(?:\d{1,2}\.\d{3}\.\d{3}-[0-9Xx]|\d{4}\.\d{3}-[0-9Xx]|\d{7,9}-[0-9Xx]|\d{8,9})(?!\d)"
+        # Primeiro grupo aceita 1 a 3 dígitos (cobre "22.116.876-8" e também o formato do
+        # DETRAN-RJ com 3 dígitos no primeiro grupo, ex: "010.932.234-7", que antes não batia)
+        padroes_ativos["RG"] = r"(?<!\d)(?:\d{1,3}\.\d{3}\.\d{3}-[0-9Xx]|\d{4}\.\d{3}-[0-9Xx]|\d{7,9}-[0-9Xx]|\d{8,9})(?!\d)"
 
     if tarjar_cnpj:
         padroes_ativos["CNPJ"] = r"(?<!\d)(?:\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}|\d{14})(?!\d)"
@@ -119,10 +117,15 @@ def processar_pdf_lgpd(caminho_entrada, tarjar_cpf=True, tarjar_email=True, tarj
             tarjas_na_pagina, texto_extraido = buscar_e_tarjar()
             
             # ── MÉTODO 2: FALLBACK PARA OCR (IMAGENS) ──
-            # Aciona sempre que a página não tiver texto extraível legível (< 50 caracteres),
-            # independente de já ter achado algo no Método 1 (uma página pode ter um pouco de
-            # texto nativo E uma imagem escaneada com mais dados sensíveis dentro dela).
-            if len(texto_extraido.strip()) < 50:
+            # Aciona quando: (a) a página não tiver texto extraível legível (< 50 caracteres,
+            # PDF 100% escaneado), OU (b) a página tiver alguma imagem embutida — mesmo que já
+            # exista bastante texto digitado nela (ex: formulário com uma foto de CPF/RG colada
+            # dentro). Sem o item (b), uma foto de documento dentro de uma página com texto
+            # nunca era verificada pelo OCR.
+            tem_imagem = len(pagina.get_images(full=True)) > 0
+            precisa_ocr = len(texto_extraido.strip()) < 50 or tem_imagem
+
+            if precisa_ocr:
                 try:
                     # Roda o OCR na página e GUARDA o textpage retornado — este era o bug:
                     # antes o resultado do OCR era descartado e as buscas seguintes
