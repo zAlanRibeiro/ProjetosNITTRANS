@@ -16,6 +16,7 @@ from PdfExcelMultas.pdfDeferidoIndeferido import rodar_automacao as _fn_pdf
 from ProcessosAbertos.processosAbertos import rodar_processos_abertos as _fn_processos
 from DetranLimpo.detranLimpo import rodar_detran_limpo as _fn_detran_limpo
 from RemovedorDuplicadasDetran.removerDuplicada import mesclar_arquivos_excel as _fn_remover_duplicadas
+from EstatisticasSEI.sei_estatisticas import rodar_sei_estatisticas as _fn_sei
 
 def obter_diretorio_base():
     """Garante que o caminho raiz seja sempre a pasta onde o .exe ou .py está rodando."""
@@ -25,129 +26,6 @@ def obter_diretorio_base():
         return os.path.abspath(os.path.dirname(__file__))
 
 # Lógica incorporada diretamente para evitar erro de importação
-class ProcessadorSEI:
-    @staticmethod
-    @staticmethod
-    @staticmethod
-    def processar_pdf(caminho_pdf, destino_xlsx):
-        import pdfplumber
-        import pandas as pd
-
-        linhas_excel = []
-
-        with pdfplumber.open(caminho_pdf) as pdf:
-
-            for pagina in pdf.pages:
-
-                # Todas as palavras da página com posição
-                palavras = pagina.extract_words(
-                    x_tolerance=2,
-                    y_tolerance=2,
-                    keep_blank_chars=False
-                )
-
-                # Todas as tabelas encontradas
-                tabelas = pagina.find_tables()
-
-                for tabela in tabelas:
-
-                    # Onde a tabela começa
-                    x0, top, x1, bottom = tabela.bbox
-
-                    # Procura o texto imediatamente acima da tabela
-                    acima = [p for p in palavras if p["bottom"] < top]
-
-                    titulo = "Tabela"
-
-                    if acima:
-
-                        # Agrupa palavras por linha (posição Y)
-                        linhas = {}
-
-                        for p in acima:
-                            y = round(p["top"], 1)
-                            linhas.setdefault(y, []).append(p)
-
-                        ultima_linha = max(linhas.keys())
-
-                        palavras_linha = sorted(
-                            linhas[ultima_linha],
-                            key=lambda x: x["x0"]
-                        )
-
-                        titulo = " ".join(p["text"] for p in palavras_linha)
-
-                    # Escreve o título
-                    linhas_excel.append([titulo])
-                    linhas_excel.append(["-" * 80])
-
-                    dados = tabela.extract()
-
-                    if not dados:
-                        continue
-
-                    # Cabeçalho
-                    linhas_excel.append(dados[0])
-
-                    # Dados
-                    for linha in dados[1:]:
-
-                        if not linha:
-                            continue
-
-                        if all(c is None or str(c).strip() == "" for c in linha):
-                            continue
-
-                        linhas_excel.append(linha)
-
-                    # Linha em branco entre tabelas
-                    linhas_excel.append([])
-
-        if not linhas_excel:
-            return False, None
-
-        largura = max(len(l) for l in linhas_excel)
-
-        linhas_padronizadas = []
-
-        for linha in linhas_excel:
-            linha = list(linha)
-            while len(linha) < largura:
-                linha.append("")
-            linhas_padronizadas.append(linha)
-
-        df = pd.DataFrame(linhas_padronizadas)
-
-        df.to_excel(destino_xlsx, index=False, header=False)
-
-        return True, destino_xlsx
-
-    @staticmethod
-    def rodar_sei_estatisticas():
-        # Caminho raiz e subpastas
-        pasta_raiz = os.path.join(obter_diretorio_base(), "EstatisticasSEI")
-        pasta_entrada = os.path.join(pasta_raiz, "entrada")
-        pasta_resultados = os.path.join(pasta_raiz, "resultados")
-        
-        # CRÍTICO: Garante que as pastas existem antes de tentar usá-las
-        os.makedirs(pasta_entrada, exist_ok=True)
-        os.makedirs(pasta_resultados, exist_ok=True)
-        
-        # Agora sim, lista os arquivos com segurança
-        arquivos = [f for f in os.listdir(pasta_entrada) if f.endswith(".pdf")]
-        
-        if not arquivos:
-            # Se não houver arquivo, avisa onde você deve colocar o PDF
-            raise FileNotFoundError(f"Coloque o arquivo PDF na pasta:\n{pasta_entrada}")
-        
-        caminho_pdf = os.path.join(pasta_entrada, arquivos[0])
-        caminho_saida = os.path.join(pasta_resultados, "Relatorio_Consolidado.xlsx")
-        
-        # Executa o processamento
-        ok, _ = ProcessadorSEI.processar_pdf(caminho_pdf, caminho_saida)
-
-        if not ok:
-            raise Exception("Nenhuma tabela foi encontrada no PDF.")
 
 class GerenciadorProcessos:
     def __init__(self, callback_sucesso, callback_erro, callback_status):
@@ -290,6 +168,6 @@ FERRAMENTAS = {
     "pdfDeferidoIndeferido.py": _fn_pdf,
     "processosAbertos.py":      _fn_processos,
     "detranLimpo.py":           _fn_detran_limpo,
-    "sei_estatisticas":         ProcessadorSEI.rodar_sei_estatisticas,
-    "removerDuplicada.py":   _fn_remover_duplicadas,
+    "sei_estatisticas":         _fn_sei,
+    "removerDuplicada.py":      _fn_remover_duplicadas,
 }
