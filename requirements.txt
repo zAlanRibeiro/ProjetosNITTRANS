@@ -5,3 +5,5 @@ pdfplumber
 pandas
 tqdm
 openpyxl
+matplotlib
+

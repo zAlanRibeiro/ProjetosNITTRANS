@@ -13,6 +13,7 @@ a = Analysis(
         ('logo.ico', '.'),
     ],
     hiddenimports=[
+        'matplotlib',
         # Interface
         'customtkinter',
         'PIL._tkinter_finder',
@@ -51,7 +52,6 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
-        'matplotlib',
         'scipy',
         'notebook',
         'IPython',
