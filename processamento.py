@@ -43,10 +43,20 @@ class GerenciadorProcessos:
         arquivos_para_copiar = []
         
         # 1. Abre a janela de seleção de arquivos (Múltipla ou Única)
-        if nome_do_arquivo == "removerDuplicada.py":
+        if nome_do_arquivo in ("removerDuplicada.py", "enderecos.py"):
+            titulo = (
+                "Selecione os arquivos Excel para mesclar"
+                if nome_do_arquivo == "removerDuplicada.py"
+                else "Selecione a(s) planilha(s) para processar (1 ou mais)"
+            )
+            filetypes = (
+                [("Arquivos Excel", "*.xlsx *.xls")]
+                if nome_do_arquivo == "removerDuplicada.py"
+                else [("Arquivos compatíveis", "*.xlsx *.xls *.csv")]
+            )
             caminhos = filedialog.askopenfilenames(
-                title=f"Selecione os arquivos Excel para mesclar",
-                filetypes=[("Arquivos Excel", "*.xlsx *.xls")]
+                title=titulo,
+                filetypes=filetypes
             )
             if not caminhos:
                 return # Usuário cancelou
