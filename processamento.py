@@ -17,6 +17,7 @@ from ProcessosAbertos.processosAbertos import rodar_processos_abertos as _fn_pro
 from DetranLimpo.detranLimpo import rodar_detran_limpo as _fn_detran_limpo
 from RemovedorDuplicadasDetran.removerDuplicada import mesclar_arquivos_excel as _fn_remover_duplicadas
 from EstatisticasSEI.sei_estatisticas import rodar_sei_estatisticas as _fn_sei
+from BloquearPlanilha.bloqueador import rodar_bloqueio as _fn_bloqueio
 
 def obter_diretorio_base():
     """Garante que o caminho raiz seja sempre a pasta onde o .exe ou .py está rodando."""
