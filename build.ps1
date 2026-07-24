@@ -58,6 +58,6 @@ Write-Host "============================================" -ForegroundColor Green
 Write-Host "  BUILD CONCLUIDO COM SUCESSO!" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "  Instalador: installer\Output\Setup_HubNITTRANS_v5.0.exe"
+Write-Host "  Instalador: installer\Output\Setup_HubNITTRANS_v5.1.exe"
 Write-Host "  Bundle    : dist\HubNITTRANS\"
 Write-Host ""
