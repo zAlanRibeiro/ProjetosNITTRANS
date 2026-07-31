@@ -45,8 +45,16 @@ def bloquear_e_formatar_planilha(
   for row in range(1, ws.max_row + 1):
     for col in range(1, ws.max_column + 1):
       celula = ws.cell(row=row, column=col)
-      celula.font = Font(name="Calibri", size=11)
       celula.border = borda_celula
+
+      # Primeira linha é o cabeçalho: fundo azul, texto branco em negrito
+      if row == 1:
+        celula.font = fonte_cabecalho
+        celula.fill = fill_cabecalho
+        celula.alignment = Alignment(horizontal="center", vertical="center")
+        continue
+
+      celula.font = Font(name="Calibri", size=11)
 
       if isinstance(celula.value, (int, float)):
         celula.alignment = Alignment(horizontal="right", vertical="center")
