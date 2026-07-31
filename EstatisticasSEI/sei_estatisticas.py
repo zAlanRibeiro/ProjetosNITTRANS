@@ -1,16 +1,32 @@
 import os
 import re
+import textwrap
 import pdfplumber
 import pandas as pd
 
 # Configura o Matplotlib para NÃO usar o Tkinter (evita o erro 'main thread is not in main loop')
 import matplotlib
-matplotlib.use('Agg') 
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
+
+def eh_linha_de_processo(linha, nome_celula):
+    """Filtra cabeçalhos/rodapés da tabela, deixando passar só linhas de tipo de processo."""
+    # Todo tipo de processo do SEI vem como "Categoria: Nome" (ex.: "Administrativo: Comunicado").
+    # Cabeçalhos como 'Tipo' / 'Quantidade' não têm ':' e são descartados aqui
+    # (o cabeçalho 'Tipo' vinha com o ano na coluna ao lado e virava uma barra falsa).
+    if ':' not in nome_celula or len(nome_celula) < 4:
+        return False
+
+    if nome_celula.upper().startswith(('TOTAL', 'GERAL')):
+        return False
+
+    # Precisa ter algum número na linha, senão não é uma linha de contagem
+    return any(str(item).replace('\n', '').strip().isdigit() for item in linha if item)
 
 def extrair_e_verificar_dados(caminho_arquivo):
     unidade = "Unidade Não Identificada"
-    
+
     processos = {
         'Administrativo: Auto de Infração': 0,
         'Administrativo: Defesa Prévia': 0,
@@ -19,7 +35,10 @@ def extrair_e_verificar_dados(caminho_arquivo):
         'Financeiro: Cancelamento de Lançamentos': 0,
         'Administrativo: Requerimento Geral/Envio de Expedientes Diversos': 0
     }
-    
+
+    # Tipos de processo que aparecem no PDF mas não estão na lista acima
+    processos_extras = {}
+
     doc_auto_sei = 0
     doc_decreto_sei = 0
     total_processos_gerados = 0
@@ -70,11 +89,19 @@ def extrair_e_verificar_dados(caminho_arquivo):
                 if 'TOTAL:' in nome_celula.upper():
                     total_processos_gerados = pegar_valor(row)
                 else:
+                    chave_encontrada = None
                     for chave in processos.keys():
                         if chave in nome_celula:
-                            processos[chave] = pegar_valor(row)
+                            chave_encontrada = chave
                             break
-                            
+
+                    if chave_encontrada:
+                        processos[chave_encontrada] = pegar_valor(row)
+                    elif eh_linha_de_processo(row, nome_celula):
+                        # Tipo não previsto no mapeamento: guarda o nome real vindo do PDF
+                        processos_extras[nome_celula] = processos_extras.get(nome_celula, 0) + pegar_valor(row)
+
+
         elif 'Auto de Infração' in tabela_flat and 'Administrativo:' not in tabela_flat and not tabela_documentos_lida:
             tabela_documentos_lida = True
             
@@ -97,7 +124,7 @@ def extrair_e_verificar_dados(caminho_arquivo):
                 elif 'Decreto' in nome_celula:
                     doc_decreto_sei = pegar_valor(row)
 
-    return processos, unidade, doc_auto_sei, doc_decreto_sei, total_processos_gerados
+    return processos, processos_extras, unidade, doc_auto_sei, doc_decreto_sei, total_processos_gerados
 
 def rodar_sei_estatisticas():
     pasta_entrada = "entrada"
@@ -114,11 +141,15 @@ def rodar_sei_estatisticas():
     caminho_pdf = os.path.join(pasta_entrada, arquivos[0])
     
     # 1. Extração
-    processos, unidade, doc_auto_sei, doc_decreto_sei, total_processos_gerados = extrair_e_verificar_dados(caminho_pdf)
+    processos, processos_extras, unidade, doc_auto_sei, doc_decreto_sei, total_processos_gerados = extrair_e_verificar_dados(caminho_pdf)
 
     # 2. Preparar Dados
     soma_mapeados = sum(processos.values())
-    outros = max(0, total_processos_gerados - soma_mapeados)
+    soma_extras = sum(processos_extras.values())
+    outros = max(0, total_processos_gerados - soma_mapeados - soma_extras)
+
+    # Única unidade que usa a nomenclatura interna do mapeamento abaixo
+    UNIDADE_CLASSIFICACAO_INTERNA = 'NIT/NITTRANS/DIVDOC'
 
     mapeamento_nomes = {
         'Administrativo: Defesa Prévia': 'Defesa Prévia',
@@ -129,32 +160,67 @@ def rodar_sei_estatisticas():
         'Administrativo: Requerimento Geral/Envio de Expedientes Diversos': 'Auto de Infração'
     }
 
+    # A classificação interna (os nomes traduzidos acima) só faz sentido no DIVDOC.
+    # Nas demais divisões o gráfico sai com o nome original do tipo de processo no SEI.
+    usar_classificacao_interna = unidade.strip().upper() == UNIDADE_CLASSIFICACAO_INTERNA
+
     categorias = []
     valores = []
 
-    for chave_sei, nome_convertido in mapeamento_nomes.items():
-        quantidade = processos[chave_sei]
-        categorias.append(nome_convertido)
-        valores.append(quantidade)
+    if usar_classificacao_interna:
+        for chave_sei, nome_convertido in mapeamento_nomes.items():
+            quantidade = processos[chave_sei]
+            categorias.append(nome_convertido)
+            valores.append(quantidade)
+
+        qtd_mapeados = len(categorias)
+
+        # Tipos não previstos entram com o nome real que veio do PDF (maior primeiro)
+        for nome_original, quantidade in sorted(processos_extras.items(), key=lambda x: -x[1]):
+            categorias.append(nome_original)
+            valores.append(quantidade)
+    else:
+        # Sem as pré-definidas: todo tipo entra com o nome do SEI, do maior para o menor.
+        # Tipos zerados são omitidos porque aqui a lista vem dos dados, não é fixa.
+        todos_os_tipos = {**processos, **processos_extras}
+        for nome_original, quantidade in sorted(todos_os_tipos.items(), key=lambda x: -x[1]):
+            if quantidade > 0:
+                categorias.append(nome_original)
+                valores.append(quantidade)
+
+        qtd_mapeados = len(categorias)
 
     categorias.append('Outros (Não Listados)')
     valores.append(outros)
 
+    # Quebra rótulos longos em várias linhas para não estourar a margem esquerda
+    rotulos = [textwrap.fill(c, 32) for c in categorias]
+
     # 3. Configurar a Interface Visual Matplotlib (Rodando em Background)
-    fig, ax = plt.subplots(figsize=(12, 7.5))
-    fig.patch.set_facecolor('#f4f6f9') 
-    ax.set_facecolor('#ffffff')        
+    # Altura cresce conforme a quantidade de barras (evita rótulos espremidos)
+    altura_fig = max(7.5, 1.05 * len(categorias) + 2.0)
+    fig, ax = plt.subplots(figsize=(12, altura_fig))
+    fig.patch.set_facecolor('#f4f6f9')
+    ax.set_facecolor('#ffffff')
     plt.subplots_adjust(left=0.32, bottom=0.22, top=0.85, right=0.92)
 
-    cores = ['#2980b9'] * len(mapeamento_nomes) + ['#95a5a6'] 
-    bars = ax.barh(categorias, valores, color=cores, height=0.6)
+    # Azul para os tipos mapeados, laranja para os não previstos, cinza para o resíduo.
+    # Fora do DIVDOC não há "não previsto": todos usam o nome do SEI, então tudo fica azul.
+    qtd_extras = len(categorias) - qtd_mapeados - 1  # -1 = barra 'Outros (Não Listados)'
+    cores = (['#2980b9'] * qtd_mapeados
+             + ['#e67e22'] * qtd_extras
+             + ['#95a5a6'])
+    bars = ax.barh(rotulos, valores, color=cores, height=0.6)
+
+    maior_valor = max(valores) if valores else 0
+    afastamento = maior_valor * 0.01 + 0.05  # proporcional à escala, não fixo
 
     for bar in bars:
         ax.text(
-            bar.get_width() + 0.05, 
-            bar.get_y() + bar.get_height()/2, 
-            str(int(bar.get_width())), 
-            va='center', 
+            bar.get_width() + afastamento,
+            bar.get_y() + bar.get_height()/2,
+            str(int(bar.get_width())),
+            va='center',
             fontsize=12,
             fontweight='bold',
             color='#2c3e50'
@@ -164,9 +230,11 @@ def rodar_sei_estatisticas():
     ax.set_xlabel('Quantidade de Processos', fontsize=12, fontweight='bold', color='#34495e', labelpad=10)
     
     ax.invert_yaxis()
-    if valores and max(valores) > 0:
-        ax.set_xlim(0, max(valores) + (max(valores) * 0.15 + 1))
-        ax.set_xticks(range(0, max(valores) + 2))
+    if maior_valor > 0:
+        ax.set_xlim(0, maior_valor + (maior_valor * 0.15 + 1))
+        # Deixa o Matplotlib escolher no máximo ~10 marcas inteiras.
+        # Fixar range(0, max+2) gerava centenas de ticks sobrepostos (eixo virava um borrão).
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=10, integer=True))
 
     ax.xaxis.grid(True, linestyle='--', alpha=0.6, color='#bdc3c7')
     ax.set_axisbelow(True) 
@@ -182,9 +250,11 @@ def rodar_sei_estatisticas():
     plt.close(fig) # Importante para liberar a memória já que não vamos mostrar a janela do plot!
 
     # 5. Salvar Excel com tratamento de erro (se o Excel estiver aberto)
+    coluna_tipo = ('Tipo de Processo (Classificação Interna)' if usar_classificacao_interna
+                   else 'Tipo de Processo (SEI)')
     df = pd.DataFrame({
-        'Unidade': [unidade] * len(categorias), 
-        'Tipo de Processo (Classificação Interna)': categorias,
+        'Unidade': [unidade] * len(categorias),
+        coluna_tipo: categorias,
         'Quantidade': valores
     })
     caminho_saida = os.path.join(pasta_resultados, "Relatorio_Consolidado.xlsx")

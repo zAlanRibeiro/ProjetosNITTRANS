@@ -15,35 +15,94 @@ from tqdm import tqdm
 CACHE_FILE = 'cache_enderecos.json'
 INTERVALO_SAVE_CACHE = 10
 
+# Faixas do território brasileiro, usadas para detectar colunas trocadas
+FAIXA_LAT_BR = (-34.0, 6.0)
+FAIXA_LON_BR = (-74.0, -33.0)
 
-def padronizar_coordenada(valor, tipo):
-    """
-    Extrai apenas os números e reconstrói forçando o formato exato 00.0000
-    para contornar bugs de exportação do sistema.
-    """
-    val_str = str(valor)
-    if val_str.lower() in ['nan', 'none', '', 'nat']:
-        return None
-    
-    # Isola os números, descartando pontos e vírgulas ruins da planilha original
-    digitos = ''.join([c for c in val_str if c.isdigit()])
-    if not digitos:
-        return None
-        
-    prefixo = "22" if tipo == "lat" else "43"
-    
-    if digitos.startswith(prefixo):
-        resto = digitos[len(prefixo):]
+
+def _texto_para_float(val_str):
+    """Converte o texto em número, aceitando vírgula como separador decimal."""
+    val_str = val_str.replace(' ', '').replace('°', '')
+    if ',' in val_str and '.' in val_str:
+        # "1.234,56" -> ponto é separador de milhar
+        val_str = val_str.replace('.', '').replace(',', '.')
     else:
-        resto = digitos
-        
-    # Garante as 4 casas decimais exatas
-    resto = resto.ljust(4, '0')
-        
+        val_str = val_str.replace(',', '.')
     try:
-        return float(f"-{prefixo}.{resto}")
+        return float(val_str)
     except ValueError:
         return None
+
+
+def _reinserir_ponto_decimal(val_str):
+    """Recupera coordenadas exportadas sem o separador decimal.
+
+    Alguns sistemas exportam "-22941649" no lugar de "-22.941649". Os dois
+    primeiros dígitos viram os graus e o restante, as casas decimais.
+    """
+    digitos = ''.join(c for c in val_str if c.isdigit())
+    if len(digitos) < 3:
+        return None
+
+    graus, decimais = digitos[:2], digitos[2:]
+    try:
+        numero = float(f"{graus}.{decimais}")
+    except ValueError:
+        return None
+
+    # Coordenadas de Niterói são sempre sul/oeste, então o sinal é negativo
+    # mesmo quando a exportação vem sem ele
+    return -numero
+
+
+def padronizar_coordenada(valor, tipo=None):
+    """Converte o valor lido da planilha em coordenada decimal.
+
+    O parâmetro `tipo` ('lat' ou 'lon') é usado só para validar a faixa —
+    a conversão em si não presume onde a coordenada fica.
+    """
+    val_str = str(valor).strip()
+    if val_str.lower() in ['nan', 'none', '', 'nat']:
+        return None
+
+    numero = _texto_para_float(val_str)
+
+    # Fora de qualquer faixa possível: provavelmente perdeu o separador decimal
+    if numero is None or abs(numero) > 180:
+        numero = _reinserir_ponto_decimal(val_str)
+        if numero is None:
+            return None
+
+    limite = 90 if tipo == 'lat' else 180
+    if abs(numero) > limite:
+        return None
+
+    return numero
+
+
+def _dentro(valor, faixa):
+    return faixa[0] <= valor <= faixa[1]
+
+
+def colunas_estao_invertidas(lats, lons):
+    """Detecta, pelo conjunto do arquivo, se as duas colunas vieram trocadas.
+
+    A decisão é tomada uma vez por arquivo, pela mediana de cada coluna, e não
+    linha a linha — assim o arquivo inteiro sai coerente.
+    """
+    lats = sorted(v for v in lats if v is not None)
+    lons = sorted(v for v in lons if v is not None)
+    if not lats or not lons:
+        return False
+
+    mediana_lat = lats[len(lats) // 2]
+    mediana_lon = lons[len(lons) // 2]
+
+    parece_trocado = (
+        not _dentro(mediana_lat, FAIXA_LAT_BR) and _dentro(mediana_lat, FAIXA_LON_BR)
+        and not _dentro(mediana_lon, FAIXA_LON_BR) and _dentro(mediana_lon, FAIXA_LAT_BR)
+    )
+    return parece_trocado
 
 
 def ler_csv_automatico(caminho_arquivo):
@@ -94,6 +153,16 @@ def identificar_colunas(df):
     return nome_col_lat, nome_col_lon
 
 
+def coluna_de_saida(df, nome):
+    """Escolhe o nome da coluna de resultado sem sobrescrever o arquivo original.
+
+    Se a planilha já traz uma coluna com esse nome (é comum ter "Bairro"), o
+    dado do OpenStreetMap vai para uma coluna própria com o sufixo _OSM e as
+    duas convivem no resultado. Não havendo conflito, mantém o nome de sempre.
+    """
+    return nome if nome not in df.columns else f"{nome}_OSM"
+
+
 def _salvar_cache(cache):
     with open(CACHE_FILE, 'w', encoding='utf-8') as f:
         json.dump(cache, f, ensure_ascii=False, indent=2)
@@ -125,9 +194,17 @@ def _processar_arquivo(caminho_completo, cache, reverse):
 
     print(f"Coordenadas identificadas - Latitude: {lat_col} | Longitude: {lon_col}")
 
-    # Limpeza bruta e forçada para contornar a desformatação da base original
     df['lat_aux'] = df[lat_col].apply(lambda x: padronizar_coordenada(x, 'lat'))
     df['lon_aux'] = df[lon_col].apply(lambda x: padronizar_coordenada(x, 'lon'))
+
+    # Arquivos exportados com as duas colunas trocadas são corrigidos aqui,
+    # antes da consulta de endereços
+    if colunas_estao_invertidas(df['lat_aux'], df['lon_aux']):
+        print(
+            f"\n[!] As colunas '{lat_col}' e '{lon_col}' vieram trocadas neste arquivo"
+            " — os valores foram invertidos automaticamente."
+        )
+        df['lat_aux'], df['lon_aux'] = df['lon_aux'], df['lat_aux']
 
     coordenadas_invalidas = df[df['lat_aux'].isna() | df['lon_aux'].isna()]
     if len(coordenadas_invalidas) > 0:
@@ -207,13 +284,17 @@ def _processar_arquivo(caminho_completo, cache, reverse):
     df['Latitude_Formatada'] = df['lat_aux'].apply(lambda x: f"{x:.4f}" if pd.notna(x) else "")
     df['Longitude_Formatada'] = df['lon_aux'].apply(lambda x: f"{x:.4f}" if pd.notna(x) else "")
     
-    df['Endereco_Rua'] = ruas
-    df['Bairro'] = bairros
-    df['Numero_Imovel'] = numeros
-    df['Cidade'] = cidades
-    df['CEP'] = ceps
-    df['Estado'] = estados
-    
+    for nome, valores in [
+        ('Endereco_Rua', ruas),
+        ('Bairro', bairros),
+        ('Numero_Imovel', numeros),
+        ('Cidade', cidades),
+        ('CEP', ceps),
+        ('Estado', estados),
+    ]:
+        df[coluna_de_saida(df, nome)] = valores
+
+
     df = df.drop(columns=['lat_aux', 'lon_aux'])
     
     # Copia o arquivo original para a pasta backup
