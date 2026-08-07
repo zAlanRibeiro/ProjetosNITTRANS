@@ -32,6 +32,7 @@ ICONES = {
     "detranLimpo.py": "✂",
     "pdfDeferidoIndeferido.py": "📑",
     "processosAbertos.py": "📂",
+    "autosPagos.py": "💰",
     "criptografia": "🔒",
 }
 
@@ -52,10 +53,17 @@ DICAS = {
     ),
     "pdfDeferidoIndeferido.py": (
         "Extrai processos deferidos/indeferidos de PDFs do sistema GAIDE."
+        " Aceita vários arquivos de uma vez e gera uma planilha por PDF."
     ),
     "processosAbertos.py": (
-        "Lê relatórios PDF de Processos Abertos 1ª Instância e exporta para"
-        " Excel."
+        "Lê relatórios PDF de Processos Abertos (1ª Instância e Defesa Prévia)"
+        " e exporta para Excel. Aceita vários arquivos e meses de uma vez."
+    ),
+    "autosPagos.py": (
+        "Converte os relatórios PDF de Autos Pagos do SMIT (RENAINF por UF,"
+        " RENAINF geral e Autos Pagos) em planilha. Aceita vários arquivos de"
+        " uma vez e gera uma planilha por PDF, com resumo por competência e"
+        " agente."
     ),
     "criptografia": (
         "Criptografa arquivos com AES-256-GCM e gera HTML autocontido com"
@@ -263,11 +271,17 @@ class HubApp(ctk.CTk):
             "removerDuplicada.py",
             "normal",
         ),
+        (
+            "9. Autos Pagos Renainf",
+            "AutosPagosRenainf",
+            "autosPagos.py",
+            "normal",
+        ),
     ]
 
     start_y = 175
     for i, (nome, pasta, script, estado) in enumerate(tools):
-      y_pos = start_y + (i * 52)
+      y_pos = start_y + (i * 48)
       self._criar_botao_flutuante(nome, pasta, script, y_pos, estado)
 
     # ── Área de Segurança ─────────────────────────────────────────────────
@@ -284,7 +298,7 @@ class HubApp(ctk.CTk):
 
     btn_c = ctk.CTkButton(
         self,
-        text="  9. Criptografar Arquivos",
+        text="  10. Criptografar Arquivos",
         anchor="w",
         height=40,
         width=420,
@@ -301,7 +315,7 @@ class HubApp(ctk.CTk):
 
     btn_t = ctk.CTkButton(
         self,
-        text="  10. Tarjar PDF",
+        text="  11. Tarjar PDF",
         anchor="w",
         height=40,
         width=420,
@@ -318,7 +332,7 @@ class HubApp(ctk.CTk):
 
     btn_b = ctk.CTkButton(
         self,
-        text="  11. Bloquear Planilha",
+        text="  12. Bloquear Planilha",
         anchor="w",
         height=40,
         width=420,
@@ -393,7 +407,7 @@ class HubApp(ctk.CTk):
         self,
         text=f"  {nome}",
         anchor="w",
-        height=45,
+        height=42,
         width=370,
         corner_radius=10,
         font=(FONTE, 13, "bold"),
@@ -411,8 +425,8 @@ class HubApp(ctk.CTk):
     btn_pasta = ctk.CTkButton(
         self,
         text="📁",
-        width=45,
-        height=45,
+        width=42,
+        height=42,
         corner_radius=10,
         fg_color="transparent",
         bg_color=COR_VIDRO_BLENDED,

@@ -14,10 +14,37 @@ from LimpezaArquivo.limpeza import processar_pasta as _fn_limpeza
 from OrganizadorTxtDetran.decifradorTxt import processar_arquivos as _fn_detran
 from PdfExcelMultas.pdfDeferidoIndeferido import rodar_automacao as _fn_pdf
 from ProcessosAbertos.processosAbertos import rodar_processos_abertos as _fn_processos
+from AutosPagosRenainf.autosPagos import rodar_autos_pagos as _fn_autos_pagos
 from DetranLimpo.detranLimpo import rodar_detran_limpo as _fn_detran_limpo
 from RemovedorDuplicadasDetran.removerDuplicada import mesclar_arquivos_excel as _fn_remover_duplicadas
 from EstatisticasSEI.sei_estatisticas import rodar_sei_estatisticas as _fn_sei
 from BloquearPlanilha.bloqueador import rodar_bloqueio as _fn_bloqueio
+
+# Ferramentas que aceitam vários arquivos de uma vez:
+#   nome do script -> (título da janela, tipos de arquivo)
+SELECAO_MULTIPLA = {
+    "removerDuplicada.py": (
+        "Selecione os arquivos Excel para mesclar",
+        [("Arquivos Excel", "*.xlsx *.xls")],
+    ),
+    "enderecos.py": (
+        "Selecione a(s) planilha(s) para processar (1 ou mais)",
+        [("Arquivos compatíveis", "*.xlsx *.xls *.csv")],
+    ),
+    "autosPagos.py": (
+        "Selecione o(s) relatório(s) PDF de Autos Pagos (1 ou mais)",
+        [("Arquivos PDF", "*.pdf")],
+    ),
+    "processosAbertos.py": (
+        "Selecione o(s) relatório(s) PDF de Processos Abertos (1 ou mais)",
+        [("Arquivos PDF", "*.pdf")],
+    ),
+    "pdfDeferidoIndeferido.py": (
+        "Selecione o(s) relatório(s) PDF de Autos Julgados (1 ou mais)",
+        [("Arquivos PDF", "*.pdf")],
+    ),
+}
+
 
 def obter_diretorio_base():
     """Garante que o caminho raiz seja sempre a pasta onde o .exe ou .py está rodando."""
@@ -34,6 +61,9 @@ class GerenciadorProcessos:
         self.callback_erro = callback_erro
         self.callback_status = callback_status
         self._em_execucao = False
+        # Arquivos gerados na última execução. Ferramentas que produzem uma
+        # planilha por arquivo de entrada geram vários de uma vez.
+        self._ultimos_gerados = []
 
     def iniciar_tarefa(self, pasta, nome_do_arquivo):
         """Prepara o diretório de entrada e inicia a thread de processamento."""
@@ -44,17 +74,8 @@ class GerenciadorProcessos:
         arquivos_para_copiar = []
         
         # 1. Abre a janela de seleção de arquivos (Múltipla ou Única)
-        if nome_do_arquivo in ("removerDuplicada.py", "enderecos.py"):
-            titulo = (
-                "Selecione os arquivos Excel para mesclar"
-                if nome_do_arquivo == "removerDuplicada.py"
-                else "Selecione a(s) planilha(s) para processar (1 ou mais)"
-            )
-            filetypes = (
-                [("Arquivos Excel", "*.xlsx *.xls")]
-                if nome_do_arquivo == "removerDuplicada.py"
-                else [("Arquivos compatíveis", "*.xlsx *.xls *.csv")]
-            )
+        if nome_do_arquivo in SELECAO_MULTIPLA:
+            titulo, filetypes = SELECAO_MULTIPLA[nome_do_arquivo]
             caminhos = filedialog.askopenfilenames(
                 title=titulo,
                 filetypes=filetypes
@@ -124,6 +145,10 @@ class GerenciadorProcessos:
                     if os.path.isfile(caminho_f) and os.path.getmtime(caminho_f) >= inicio:
                         arquivos_gerados.append(f)
 
+            self._ultimos_gerados = [
+                os.path.join(pasta_resultados, f) for f in arquivos_gerados
+            ]
+
             if arquivos_gerados:
                 self.callback_sucesso(pasta)
             else:
@@ -137,6 +162,28 @@ class GerenciadorProcessos:
     def exportar_resultado(self, pasta):
         caminho_da_pasta = os.path.join(obter_diretorio_base(), pasta)
         pasta_resultados = os.path.join(caminho_da_pasta, "resultados")
+
+        # Quando a execução gerou mais de um arquivo (uma planilha por PDF,
+        # por exemplo), exportar só o mais recente deixaria o resto para trás:
+        # pede uma pasta de destino e copia todos.
+        gerados = [c for c in self._ultimos_gerados if os.path.isfile(c)]
+        if len(gerados) > 1:
+            destino_pasta = filedialog.askdirectory(
+                title=f"Selecione a pasta para salvar os {len(gerados)} arquivos"
+            )
+            if not destino_pasta:
+                return False
+            try:
+                for caminho in gerados:
+                    shutil.copy(caminho, destino_pasta)
+                self.callback_status(
+                    f"{len(gerados)} arquivos exportados!", cor="#059669"
+                )
+                return True
+            except Exception as e:
+                self.callback_erro(f"Erro: {str(e)}")
+                return False
+
         arquivo_gerado = None
         if os.path.exists(pasta_resultados):
             candidatos = [os.path.join(pasta_resultados, f) for f in os.listdir(pasta_resultados) 
@@ -178,6 +225,7 @@ FERRAMENTAS = {
     "decifradorTxt.py":         _fn_detran,
     "pdfDeferidoIndeferido.py": _fn_pdf,
     "processosAbertos.py":      _fn_processos,
+    "autosPagos.py":            _fn_autos_pagos,
     "detranLimpo.py":           _fn_detran_limpo,
     "sei_estatisticas":         _fn_sei,
     "removerDuplicada.py":      _fn_remover_duplicadas,
