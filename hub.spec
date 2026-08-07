@@ -39,6 +39,7 @@ a = Analysis(
         'OrganizadorTxtDetran.decifradorTxt',
         'PdfExcelMultas.pdfDeferidoIndeferido',
         'ProcessosAbertos.processosAbertos',
+        'AutosPagosRenainf.autosPagos',
         'DetranLimpo.detranLimpo',
         'Criptografia.gui',
         'Criptografia.crypto',

@@ -3,7 +3,6 @@ import pandas as pd
 import re
 import shutil
 from pathlib import Path
-from datetime import datetime
 
 # ==========================================
 # 1. Configuração dos Diretórios
@@ -12,8 +11,19 @@ PASTA_ENTRADA = Path("entrada")
 PASTA_BACKUP = Path("backup")
 PASTA_RESULTADOS = Path("resultados")
 
-for pasta in [PASTA_ENTRADA, PASTA_BACKUP, PASTA_RESULTADOS]:
-    pasta.mkdir(exist_ok=True)
+# Vai no fim do nome da planilha, depois do nome do PDF de origem.
+SUFIXO_SAIDA = "_Extraido"
+
+COLUNAS_SAIDA = ['Arquivo', 'Página', 'CPF/CNPJ', 'Proprietário', 'Placa',
+                 'Processo', 'Data de Abertura', 'Data Resultado', 'Resultado',
+                 'Relator']
+
+# As pastas são criadas dentro de rodar_automacao(), NÃO aqui.
+# Criá-las na importação do módulo as fazia nascer no diretório do
+# executável (que é o diretório atual naquele momento) em vez da pasta da
+# ferramenta. Depois, ao rodar, o backup/ e o resultados/ certos não
+# existiam e o shutil.move falhava com "[WinError 3] O sistema não pode
+# encontrar o caminho especificado".
 
 # ==========================================
 # Regex usados em vários lugares (compilados 1x)
@@ -399,49 +409,101 @@ def validar_cpfs(dados):
 
 
 # ==========================================
-# 8. Função principal
+# 8. Nome da planilha e relatório de conferência
+# ==========================================
+def _caminho_livre(caminho):
+    """
+    Nunca sobrescreve uma planilha já existente: se o nome estiver ocupado,
+    acrescenta ' (2)', ' (3)'... como o Windows faz. Assim, reprocessar o
+    mesmo PDF preserva o resultado anterior para comparação.
+    """
+    if not caminho.exists():
+        return caminho
+    contador = 2
+    while True:
+        candidato = caminho.with_name(
+            f'{caminho.stem} ({contador}){caminho.suffix}'
+        )
+        if not candidato.exists():
+            return candidato
+        contador += 1
+
+
+def _relatar_ausentes(dados):
+    """Lista os campos que ficaram como N/A, para conferência manual."""
+    faltantes = [
+        (d, [k for k, v in d.items() if v == 'N/A']) for d in dados
+    ]
+    faltantes = [(d, f) for d, f in faltantes if f]
+    if not faltantes:
+        return
+    print(f"  Campos ausentes em {len(faltantes)} de {len(dados)} registros:")
+    for d, faltando in faltantes:
+        print(f"    pág {d['Página']:>3} | placa {d['Placa']}"
+              f" | faltou: {', '.join(faltando)}")
+
+
+# ==========================================
+# 9. Função principal
 # ==========================================
 def rodar_automacao():
+    for pasta in [PASTA_ENTRADA, PASTA_BACKUP, PASTA_RESULTADOS]:
+        pasta.mkdir(exist_ok=True)
+
     arquivos_pdf = list(PASTA_ENTRADA.glob("*.pdf"))
     if not arquivos_pdf:
         print(f"Nenhum PDF encontrado em '{PASTA_ENTRADA}'.")
         return
 
-    todos_dados = []
-    for arquivo in arquivos_pdf:
-        print(f"\nA processar: {arquivo.name}")
+    # Cada PDF gera a sua própria planilha, com o nome do arquivo de origem
+    # mais o sufixo. Nada é misturado entre arquivos.
+    geradas = []
+    vazios = []
+
+    for numero, arquivo in enumerate(sorted(arquivos_pdf), start=1):
+        print(f"\n[{numero}/{len(arquivos_pdf)}] A processar: {arquivo.name}")
         dados = extrair_dados_pdf(arquivo)
-        todos_dados.extend(dados)
-        destino = PASTA_BACKUP / arquivo.name
-        shutil.move(str(arquivo), str(destino))
 
-    todos_dados = validar_cpfs(todos_dados)
+        # A herança de CPF/CNPJ é feita POR ARQUIVO: um proprietário repetido
+        # só empresta o documento dele dentro do mesmo relatório.
+        dados = validar_cpfs(dados)
 
-    if todos_dados:
-        print("\n" + "=" * 50)
-        print("🔎 RELATÓRIO DE CAMPOS AUSENTES (N/A)")
-        print("=" * 50)
-        qtd_alertas = 0
-        for d in todos_dados:
-            faltando = [k for k, v in d.items() if v == 'N/A']
-            if faltando:
-                qtd_alertas += 1
-                print(f"⚠️ Pág {d['Página']:02d} | Placa: {d['Placa']} | Faltou: {', '.join(faltando)}")
-        if qtd_alertas == 0:
-            print("✅ Nenhum campo ficou como N/A.")
-        print("=" * 50 + "\n")
+        if dados:
+            _relatar_ausentes(dados)
 
-        ordem = ['Arquivo', 'Página', 'CPF/CNPJ', 'Proprietário', 'Placa', 'Processo',
-                 'Data de Abertura', 'Data Resultado', 'Resultado', 'Relator']
-        df = pd.DataFrame(todos_dados, columns=ordem)
-        data_hora = datetime.now().strftime("%Y%m%d_%H%M%S")
-        nome_excel = PASTA_RESULTADOS / f"relatorio_processos_{data_hora}.xlsx"
-        df.to_excel(nome_excel, index=False)
-        print("Concluído!")
-        print(f"Planilha: {nome_excel}")
-        print(f"Total de registros: {len(df)}")
-    else:
+            df = pd.DataFrame(dados, columns=COLUNAS_SAIDA)
+            caminho_saida = _caminho_livre(
+                PASTA_RESULTADOS / f"{arquivo.stem}{SUFIXO_SAIDA}.xlsx"
+            )
+            df.to_excel(caminho_saida, index=False)
+            geradas.append((caminho_saida, df))
+            print(f"  {len(df)} registros -> {caminho_saida.name}")
+        else:
+            vazios.append(arquivo.name)
+            print("  ATENÇÃO: nenhum registro extraído deste arquivo.")
+
+        shutil.move(str(arquivo), str(PASTA_BACKUP / arquivo.name))
+
+    if vazios:
+        print("\n" + "=" * 60)
+        print("ARQUIVOS SEM NENHUM REGISTRO (conferir)")
+        print("=" * 60)
+        for nome in vazios:
+            print(f"  {nome}")
+        print("Se o PDF tem dados, o layout dele não é o esperado por esta")
+        print("ferramenta. Confira o relatório antes de considerar concluído.")
+        print("=" * 60)
+
+    if not geradas:
         print("\nNenhum dado válido encontrado.")
+        return
+
+    print("\n" + "=" * 60)
+    print(f"Concluído! {len(geradas)} planilha(s) em {PASTA_RESULTADOS}:")
+    for caminho, df in geradas:
+        print(f"  {caminho.name}: {len(df)} registros")
+    print(f"  TOTAL: {sum(len(df) for _, df in geradas)} registros")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
