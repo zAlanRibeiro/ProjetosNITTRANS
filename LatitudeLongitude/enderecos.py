@@ -306,7 +306,13 @@ def _processar_arquivo(caminho_completo, cache, reverse):
     return df, nome_arquivo
 
 
-def processar_sistema_pastas():
+def processar_sistema_pastas(permitir_janela_propria=False):
+    """
+    permitir_janela_propria só é ligado quando o script roda sozinho, pelo
+    __main__. Pelo Hub ele fica desligado de propósito: o Hub executa as
+    ferramentas numa thread secundária, e criar um segundo tk.Tk() fora da
+    thread principal pode congelar ou derrubar a janela do Hub.
+    """
     # Cria apenas as pastas de saída e backup
     for pasta in ['backup', 'resultados']:
         if not os.path.exists(pasta):
@@ -325,6 +331,14 @@ def processar_sistema_pastas():
             for f in sorted(os.listdir(pasta_entrada))
             if f.lower().endswith(extensoes_validas)
         ]
+
+    if not arquivos_selecionados and not permitir_janela_propria:
+        # Chamado pelo Hub: a seleção já foi feita lá. Se nada válido chegou
+        # em "entrada", é erro de verdade — avisa em vez de abrir janela.
+        raise FileNotFoundError(
+            "Nenhuma planilha (.csv, .xlsx ou .xls) foi encontrada na pasta"
+            " 'entrada'. Selecione o arquivo novamente."
+        )
 
     if not arquivos_selecionados:
         # Modo standalone: script rodado sozinho (fora do Hub), sem pasta
@@ -413,4 +427,6 @@ def processar_sistema_pastas():
 
 
 if __name__ == "__main__":
-    processar_sistema_pastas()
+    # Rodando sozinho: aqui a thread é a principal, então a janela de
+    # seleção própria é segura.
+    processar_sistema_pastas(permitir_janela_propria=True)

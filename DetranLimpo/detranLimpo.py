@@ -194,9 +194,16 @@ def rodar_detran_limpo():
             nome_saida = PASTA_SAIDA / f"{arquivo.stem}_limpo_{data_hora}.xlsx"
             df.to_excel(nome_saida, index=False)
             
-            try: shutil.move(str(arquivo), str(PASTA_BACKUP / arquivo.name))
-            except: pass
-                
+            # A planilha já foi gravada; falhar o backup não invalida o
+            # resultado, mas também não pode passar calado — o arquivo fica
+            # em 'entrada' e seria reprocessado na próxima execução.
+            try:
+                shutil.move(str(arquivo), str(PASTA_BACKUP / arquivo.name))
+            except OSError as erro:
+                print(f"  ATENÇÃO: não foi possível mover '{arquivo.name}'"
+                      f" para '{PASTA_BACKUP}': {erro}")
+                print("  O arquivo continua em 'entrada'.")
+
             print(f"  Concluído com sucesso -> {nome_saida.name}")
             # ====================================
 

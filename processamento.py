@@ -46,6 +46,21 @@ SELECAO_MULTIPLA = {
 }
 
 
+def _destino_livre(caminho):
+    """
+    Não sobrescreve arquivo já existente no destino: acrescenta ' (2)',
+    ' (3)'... como o Windows faz. Mesma convenção usada pelas ferramentas
+    ao gravar em 'resultados'.
+    """
+    if not os.path.exists(caminho):
+        return caminho
+    raiz, ext = os.path.splitext(caminho)
+    contador = 2
+    while os.path.exists(f"{raiz} ({contador}){ext}"):
+        contador += 1
+    return f"{raiz} ({contador}){ext}"
+
+
 def obter_diretorio_base():
     """Garante que o caminho raiz seja sempre a pasta onde o .exe ou .py está rodando."""
     if getattr(sys, 'frozen', False):
@@ -175,7 +190,10 @@ class GerenciadorProcessos:
                 return False
             try:
                 for caminho in gerados:
-                    shutil.copy(caminho, destino_pasta)
+                    destino = _destino_livre(
+                        os.path.join(destino_pasta, os.path.basename(caminho))
+                    )
+                    shutil.copy(caminho, destino)
                 self.callback_status(
                     f"{len(gerados)} arquivos exportados!", cor="#059669"
                 )
