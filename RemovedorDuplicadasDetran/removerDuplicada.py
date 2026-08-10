@@ -8,6 +8,20 @@ def obter_diretorio_base():
         return os.path.dirname(sys.executable)
     return os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
+def caminho_livre(caminho):
+    """
+    Nunca sobrescreve um arquivo já existente: se o nome estiver ocupado,
+    acrescenta ' (2)', ' (3)'... como o Windows faz. Assim uma mesclagem
+    nova não apaga o consolidado anterior.
+    """
+    if not os.path.exists(caminho):
+        return caminho
+    raiz, ext = os.path.splitext(caminho)
+    contador = 2
+    while os.path.exists(f"{raiz} ({contador}){ext}"):
+        contador += 1
+    return f"{raiz} ({contador}){ext}"
+
 def mesclar_arquivos_excel():
     base = obter_diretorio_base()
     pasta_entrada = os.path.join(base, "RemovedorDuplicadasDetran", "entrada")
@@ -45,8 +59,10 @@ def mesclar_arquivos_excel():
 
     if not df_consolidado.empty:
         print("Salvando arquivo final em formato CSV...")
-        caminho_salvar = os.path.join(pasta_resultados, "Estatisticas_Niteroi_Consolidado.csv")
+        caminho_salvar = caminho_livre(
+            os.path.join(pasta_resultados, "Estatisticas_Niteroi_Consolidado.csv")
+        )
         df_consolidado.to_csv(caminho_salvar, index=False, sep=';', encoding='utf-8-sig') 
-        print("Sucesso! Arquivo final salvo.")
+        print(f"Sucesso! Arquivo final salvo: {os.path.basename(caminho_salvar)}")
     else:
         raise ValueError("Nenhum dado válido para mesclar.")
