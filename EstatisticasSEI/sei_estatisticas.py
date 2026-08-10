@@ -44,13 +44,26 @@ def extrair_e_verificar_dados(caminho_arquivo):
     total_processos_gerados = 0
 
     texto_completo = ""
+    paginas_sem_texto = []
     with pdfplumber.open(caminho_arquivo) as pdf:
-        for page in pdf.pages:
-            try:
-                texto_completo += page.extract_text() + "\n"
-            except:
-                pass
-            
+        for numero, page in enumerate(pdf.pages, start=1):
+            # extract_text() devolve None em página sem texto extraível
+            # (digitalizada ou só com imagem). Antes isso caía num
+            # 'except: pass' e a página inteira sumia da contagem em
+            # silêncio; agora é avisado para conferência manual.
+            texto_pagina = page.extract_text()
+            if texto_pagina:
+                texto_completo += texto_pagina + "\n"
+            else:
+                paginas_sem_texto.append(numero)
+
+    if paginas_sem_texto:
+        print(f"  ATENÇÃO: {len(paginas_sem_texto)} página(s) sem texto"
+              f" extraível ficaram de fora da contagem:"
+              f" {', '.join(map(str, paginas_sem_texto))}")
+        print("  Se elas têm conteúdo, provavelmente estão digitalizadas e"
+              " precisam ser conferidas à mão.")
+
     match_unidade = re.search(r'no per[ií]odo\s*\((.*?)\)', texto_completo, re.IGNORECASE)
     if match_unidade:
         unidade_bruta = match_unidade.group(1).strip()
