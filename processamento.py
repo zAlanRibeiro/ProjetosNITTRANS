@@ -15,6 +15,7 @@ from OrganizadorTxtDetran.decifradorTxt import processar_arquivos as _fn_detran
 from PdfExcelMultas.pdfDeferidoIndeferido import rodar_automacao as _fn_pdf
 from ProcessosAbertos.processosAbertos import rodar_processos_abertos as _fn_processos
 from AutosPagosRenainf.autosPagos import rodar_autos_pagos as _fn_autos_pagos
+from ColabDemandas.colabDemandas import rodar_colab_demandas as _fn_colab
 from DetranLimpo.detranLimpo import rodar_detran_limpo as _fn_detran_limpo
 from RemovedorDuplicadasDetran.removerDuplicada import mesclar_arquivos_excel as _fn_remover_duplicadas
 from EstatisticasSEI.sei_estatisticas import rodar_sei_estatisticas as _fn_sei
@@ -42,6 +43,10 @@ SELECAO_MULTIPLA = {
     "pdfDeferidoIndeferido.py": (
         "Selecione o(s) relatório(s) PDF de Autos Julgados (1 ou mais)",
         [("Arquivos PDF", "*.pdf")],
+    ),
+    "colabDemandas.py": (
+        "Selecione os CSVs do relatório do Colab (pode marcar todos de uma vez)",
+        [("Arquivos CSV", "*.csv")],
     ),
 }
 
@@ -244,6 +249,7 @@ FERRAMENTAS = {
     "pdfDeferidoIndeferido.py": _fn_pdf,
     "processosAbertos.py":      _fn_processos,
     "autosPagos.py":            _fn_autos_pagos,
+    "colabDemandas.py":         _fn_colab,
     "detranLimpo.py":           _fn_detran_limpo,
     "sei_estatisticas":         _fn_sei,
     "removerDuplicada.py":      _fn_remover_duplicadas,
