@@ -40,6 +40,7 @@ a = Analysis(
         'PdfExcelMultas.pdfDeferidoIndeferido',
         'ProcessosAbertos.processosAbertos',
         'AutosPagosRenainf.autosPagos',
+        'ColabDemandas.colabDemandas',
         'DetranLimpo.detranLimpo',
         'Criptografia.gui',
         'Criptografia.crypto',

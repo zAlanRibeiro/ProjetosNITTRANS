@@ -33,6 +33,7 @@ ICONES = {
     "pdfDeferidoIndeferido.py": "📑",
     "processosAbertos.py": "📂",
     "autosPagos.py": "💰",
+    "colabDemandas.py": "🗂",
     "criptografia": "🔒",
 }
 
@@ -64,6 +65,10 @@ DICAS = {
         " RENAINF geral e Autos Pagos) em planilha. Aceita vários arquivos de"
         " uma vez e gera uma planilha por PDF, com resumo por competência e"
         " agente."
+    ),
+    "colabDemandas.py": (
+        "Junta os seis CSVs do relatório de demandas do Colab numa planilha"
+        " só, com uma aba por recorte e traduzidos para português."
     ),
     "criptografia": (
         "Criptografa arquivos com AES-256-GCM e gera HTML autocontido com"
@@ -143,7 +148,7 @@ class HubApp(ctk.CTk):
 
     ctk.set_appearance_mode("light")
     self.configure(fg_color=COR_VIDRO_BLENDED)
-    self.geometry("460x920")
+    self.geometry("460x980")
     self.resizable(False, False)
     self.title("Hub de Ferramentas — NITTRANS")
 
@@ -171,7 +176,7 @@ class HubApp(ctk.CTk):
 
     # ── A MÁGICA DA TRANSPARÊNCIA: O CANVAS ────────────────────────────────
     self.canvas = tk.Canvas(
-        self, width=460, height=920, bg=COR_VIDRO_BLENDED, highlightthickness=0
+        self, width=460, height=980, bg=COR_VIDRO_BLENDED, highlightthickness=0
     )
     self.canvas.place(x=0, y=0)
 
@@ -183,14 +188,14 @@ class HubApp(ctk.CTk):
       if os.path.exists(caminho_fundo):
         try:
           img_original = Image.open(caminho_fundo).convert("RGBA")
-          img_original = img_original.resize((460, 860), Image.LANCZOS)
+          img_original = img_original.resize((460, 920), Image.LANCZOS)
 
           camada_overlay = Image.new("RGBA", img_original.size, (0, 0, 0, 0))
           draw = ImageDraw.Draw(camada_overlay)
 
           cor_azul_nittrans_transparente = (8, 25, 55, 110)
           draw.rounded_rectangle(
-              (10, 100, 450, 870),
+              (10, 100, 450, 930),
               radius=15,
               fill=cor_azul_nittrans_transparente,
           )
@@ -277,6 +282,12 @@ class HubApp(ctk.CTk):
             "autosPagos.py",
             "normal",
         ),
+        (
+            "10. Demandas Colab",
+            "ColabDemandas",
+            "colabDemandas.py",
+            "normal",
+        ),
     ]
 
     start_y = 175
@@ -285,7 +296,7 @@ class HubApp(ctk.CTk):
       self._criar_botao_flutuante(nome, pasta, script, y_pos, estado)
 
     # ── Área de Segurança ─────────────────────────────────────────────────
-    sep_y = 612
+    sep_y = 672
     self.canvas.create_line(20, sep_y, 440, sep_y, fill="#FFFFFF", width=2)
     self.canvas.create_text(
         20,
@@ -298,7 +309,7 @@ class HubApp(ctk.CTk):
 
     btn_c = ctk.CTkButton(
         self,
-        text="  10. Criptografar Arquivos",
+        text="  11. Criptografar Arquivos",
         anchor="w",
         height=40,
         width=420,
@@ -315,7 +326,7 @@ class HubApp(ctk.CTk):
 
     btn_t = ctk.CTkButton(
         self,
-        text="  11. Tarjar PDF",
+        text="  12. Tarjar PDF",
         anchor="w",
         height=40,
         width=420,
@@ -332,7 +343,7 @@ class HubApp(ctk.CTk):
 
     btn_b = ctk.CTkButton(
         self,
-        text="  12. Bloquear Planilha",
+        text="  13. Bloquear Planilha",
         anchor="w",
         height=40,
         width=420,
@@ -349,10 +360,10 @@ class HubApp(ctk.CTk):
 
     # ── Status e Progresso ────────────────────────────────────────────────
     self.id_spinner = self.canvas.create_text(
-        20, 795, text="", font=(FONTE, 13, "bold"), fill="#FFB347", anchor="w"
+        20, 855, text="", font=(FONTE, 13, "bold"), fill="#FFB347", anchor="w"
     )
     self.id_status = self.canvas.create_text(
-        20, 810, text="", font=(FONTE, 12), fill="#FFFFFF", anchor="nw", width=420
+        20, 870, text="", font=(FONTE, 12), fill="#FFFFFF", anchor="nw", width=420
     )
 
     self.progress_bar = ctk.CTkProgressBar(
@@ -381,10 +392,10 @@ class HubApp(ctk.CTk):
     )
 
     # ── Rodapé ────────────────────────────────────────────────────────────
-    self.canvas.create_rectangle(0, 870, 460, 920, fill="#0A1E3F", outline="")
+    self.canvas.create_rectangle(0, 930, 460, 980, fill="#0A1E3F", outline="")
     self.canvas.create_text(
         230,
-        895,
+        955,
         text=(
             "NITTRANS  ·  Niterói Transporte e Trânsito  ·  Prefeitura Municipal"
             " de Niterói"
@@ -458,7 +469,7 @@ class HubApp(ctk.CTk):
     self._spinner_idx = 0
     self._progress_val = 0.0
     self.progress_bar.set(0)
-    self.progress_bar.place(x=20, y=810)
+    self.progress_bar.place(x=20, y=870)
     self._tick_spinner(nome)
     self._tick_progress()
 
@@ -524,7 +535,7 @@ class HubApp(ctk.CTk):
     self.btn_exportar.configure(
         command=lambda: self.executar_exportacao(pasta)
     )
-    self.btn_exportar.place(x=20, y=830)
+    self.btn_exportar.place(x=20, y=890)
 
   def ao_dar_erro(self, erro):
     self.after(0, self._exibir_erro, erro)
