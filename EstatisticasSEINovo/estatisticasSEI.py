@@ -55,11 +55,13 @@ silêncio.
 import json
 import re
 import shutil
+import sys
 import unicodedata
 from collections import defaultdict
 from pathlib import Path
 
 import pdfplumber
+import pymupdf
 import pandas as pd
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -208,6 +210,26 @@ RE_ORGAO = re.compile(r"\s*/\s*NITEROI\b.*$", re.IGNORECASE)
 RE_ANO = re.compile(r"^(19|20)\d{2}$")
 RE_COPIA_WINDOWS = re.compile(r"\s*\(\d+\)$")
 RE_TEM_CONTEUDO = re.compile(r"[0-9A-Za-zÀ-ÿ]")
+# Layout de celular (PDF salvo com a janela estreita): cada célula vem com o
+# rótulo da coluna na frente ('TIPO Comunicado', 'QUANTIDADE 1', '2026 25',
+# 'AGO 25'). Ver _ler_layout_empilhado().
+RE_ROTULO_EMPILHADO = re.compile(
+    r"^(TIPO|QUANTIDADE|(19|20)\d{2}|" + "|".join(m.upper() for m in MESES)
+    + r")(\s+|$)")
+RE_TITULO_QUALQUER = re.compile(r"per[ií]odo\s*:$", re.IGNORECASE)
+RE_LEGENDA_QUALQUER = re.compile(r"per[ií]odo\s*\(", re.IGNORECASE)
+RE_CABECALHO_PAGINA = re.compile(r"^(\d{2}/\d{2}/\d{4}, \d{2}:\d{2}|https?://)")
+
+# OCR para o PDF sem texto (impresso com 'Microsoft Print to PDF', que
+# grava as letras como desenho). O MuPDF já traz o motor do Tesseract e só
+# precisa do arquivo de idioma 'por.traineddata' — o mesmo que o TarjarPDF
+# usa e que o hub.spec empacota junto (TarjarPDF/tesseract).
+PASTA_TESSDATA = (Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+                  / "TarjarPDF" / "tesseract" / "tessdata")
+# 400 foi a resolução que leu certo todos os números do relatório de teste;
+# 300 e 600 trocaram dígitos.
+DPI_OCR = 400
+PALAVRAS_CABECALHO = {"tipo", "quantidade", "tempo", "médio"}
 
 # As três seções do relatório que interessam, reconhecidas pelo título
 # acima da tabela. Os dois-pontos no fim são o que distingue o título da
@@ -528,6 +550,45 @@ def _secao_da_tabela(pagina, tabela):
     return None
 
 
+def _desembrulhar(dados):
+    """
+    Tira a tabela de dentro da que o navegador às vezes põe em volta da
+    página inteira. Aí a primeira linha é o texto da página até a tabela,
+    com o resto das seções anteriores, e o cabeçalho 'Tipo' vem logo
+    depois; o título da tabela é o último que ficou sem legenda. No fim,
+    depois da legenda, sobram pedaços das seções seguintes, que são
+    cortados.
+
+    Devolve (seção pelo título embutido, dados), ou (None, dados) intactos
+    quando a tabela não está embrulhada.
+    """
+    if _tem_cabecalho_tipo(dados) or len(dados) < 2:
+        return None, dados
+    inicio = next((i for i in (1, 2) if _tem_cabecalho_tipo(dados[i:])), None)
+    if inicio is None or not dados[0]:
+        return None, dados
+    secao = _secao_aberta_no_fim(dados[0][0])
+    if secao is None:
+        return None, dados
+    fim = next((i for i in range(inicio, len(dados))
+                if dados[i] and RE_LEGENDA_QUALQUER.search(_texto(dados[i][0]))),
+               len(dados))
+    return secao, dados[inicio:fim]
+
+
+def _secao_aberta_no_fim(texto_da_pagina):
+    """Seção cujo título ficou no fim da página sem a legenda embaixo."""
+    aberta = None
+    for linha in (texto_da_pagina or "").splitlines():
+        linha = _texto(linha)
+        if RE_TITULO_QUALQUER.search(linha):
+            aberta = next((s for s, p in TITULOS_SECAO.items()
+                           if p.search(linha)), None)
+        elif RE_LEGENDA_QUALQUER.search(linha):
+            aberta = None
+    return aberta
+
+
 def _ler_itens(pedacos, arquivo, avisos):
     """
     Tipos e quantidades de uma seção, juntando os pedaços em que a quebra
@@ -555,6 +616,199 @@ def _ler_itens(pedacos, arquivo, avisos):
                 continue
             itens[nome] += quantidade
     return dict(itens), total
+
+
+def _ler_layout_empilhado(texto, arquivo, avisos):
+    """
+    Plano B para o PDF salvo com a janela do navegador estreita: o SEI
+    troca a tabela pelo layout de celular, uma célula por linha com o
+    rótulo da coluna na frente, e o pdfplumber não acha tabela com
+    cabeçalho 'Tipo'. A leitura então é pelo texto corrido.
+
+    Tirados os rótulos, cada item é o nome seguido da(s) quantidade(s);
+    como em _valor(), o último número é o total do período. A seção começa
+    no título ('...no período:') e termina na legenda com a unidade ou no
+    próximo título.
+
+    Devolve ({seção: (itens, total declarado)}, competências).
+    """
+    secoes = {}
+    secao = None
+    nome = None
+    anos, meses = set(), set()
+    for linha in texto.splitlines():
+        linha = _texto(linha)
+        if not RE_TEM_CONTEUDO.search(linha) or RE_CABECALHO_PAGINA.match(linha):
+            continue
+        if RE_TITULO_QUALQUER.search(linha):
+            secao = next((s for s, p in TITULOS_SECAO.items()
+                          if p.search(linha)), None)
+            if secao:
+                secoes[secao] = {}
+            nome = None
+            continue
+        if RE_LEGENDA_QUALQUER.search(linha):
+            secao = None
+            continue
+        if secao is None:
+            continue
+        # Cabeçalho do mês, sozinho na linha ('Ago').
+        if linha.lower() in MESES:
+            meses.add(MESES[linha.lower()])
+            continue
+        rotulo = RE_ROTULO_EMPILHADO.match(linha)
+        if rotulo:
+            if RE_ANO.match(rotulo.group(1)):
+                anos.add(rotulo.group(1))
+            elif rotulo.group(1).lower() in MESES:
+                meses.add(MESES[rotulo.group(1).lower()])
+            linha = linha[rotulo.end():]
+            if not linha:
+                continue
+        if linha.replace(".", "").isdigit():
+            if nome:
+                secoes[secao][nome] = int(linha.replace(".", ""))
+        else:
+            nome = linha
+            secoes[secao].setdefault(nome, None)
+
+    lidas = {}
+    for secao, valores in secoes.items():
+        total = None
+        itens = {}
+        for nome, quantidade in valores.items():
+            if _e_linha_de_total(nome):
+                total = quantidade
+            elif quantidade is None:
+                avisos.append((arquivo.name,
+                               f"'{nome}' veio sem quantidade legível"
+                               " — ficou de fora"))
+            else:
+                itens[nome] = quantidade
+        lidas[secao] = (itens, total)
+
+    competencias = ([f"{anos.pop()}-{m}" for m in sorted(meses)]
+                    if len(anos) == 1 else [])
+    return lidas, competencias
+
+
+def _linhas_do_ocr(palavras, largura):
+    """
+    Remonta as linhas da tabela a partir das palavras do OCR, no formato
+    que _ler_layout_empilhado() lê: o nome do tipo numa linha e cada
+    quantidade na sua.
+
+    O Tesseract devolve cada célula como uma linha à parte, então nome e
+    quantidades de uma mesma linha da tabela são juntados pela altura. O
+    nome que quebrou em duas ou três linhas dentro da célula fica centrado
+    na linha do número, e cada pedaço vai para a linha com número mais
+    próxima. O TOTAL é reconhecido pela posição (é o único nome fora da
+    margem esquerda), porque o OCR costuma ler a palavra errado.
+    """
+    if not palavras:
+        return []
+    alturas = sorted(p[3] - p[1] for p in palavras)
+    altura = alturas[len(alturas) // 2]
+    margem = largura * 0.015
+
+    celulas = defaultdict(list)
+    for x0, y0, x1, y1, palavra, bloco, linha, _ in palavras:
+        # Gráficos (letras gigantes) e setas de navegação (na beirada).
+        if y1 - y0 > 3 * altura or x1 < margem or x0 > largura - margem:
+            continue
+        celulas[bloco, linha].append((x0, y0, x1, y1, palavra))
+
+    # (centro vertical, x, tipo, texto) de cada célula.
+    pedacos = []
+    for ws in celulas.values():
+        texto = " ".join(w[4] for w in ws)
+        x0 = min(w[0] for w in ws)
+        centro = (min(w[1] for w in ws) + max(w[3] for w in ws)) / 2
+        # O ano e o mês do cabeçalho passam adiante como estão, para a
+        # competência. ponytail: uma quantidade que por acaso seja um ano
+        # (2026) e caia sozinha numa célula seria lida como cabeçalho.
+        if (RE_TITULO_QUALQUER.search(texto) or RE_LEGENDA_QUALQUER.search(texto)
+                or RE_ANO.match(texto) or texto.lower() in MESES):
+            tipo = "marco"
+        elif set(texto.lower().split()) <= PALAVRAS_CABECALHO:
+            continue
+        elif texto.replace(".", "").isdigit():
+            tipo = "numero"
+        elif len(texto) <= 3:
+            continue  # número lido como lixo ('Fe)'); o do mês ao lado basta
+        else:
+            tipo = "nome"
+        pedacos.append((centro, x0, tipo, texto))
+    pedacos.sort()
+
+    # Agrupa em linhas da tabela pela altura.
+    linhas = []
+    for pedaco in pedacos:
+        if linhas and pedaco[0] - linhas[-1][0][0] <= altura * 0.6:
+            linhas[-1].append(pedaco)
+        else:
+            linhas.append([pedaco])
+
+    def tem(linha, tipo):
+        return any(p[2] == tipo for p in linha)
+
+    # Pedaço de nome sem número vai para a linha com número mais próxima,
+    # sem atravessar título ou legenda.
+    destino = {}
+    for i, linha in enumerate(linhas):
+        if tem(linha, "numero") or tem(linha, "marco"):
+            continue
+        candidatas = []
+        for passo in (-1, 1):
+            j = i + passo
+            while 0 <= j < len(linhas) and not tem(linhas[j], "marco"):
+                if tem(linhas[j], "numero"):
+                    candidatas.append((abs(linhas[j][0][0] - linha[0][0]), j))
+                    break
+                j += passo
+        perto = [c for c in candidatas if c[0] <= 2.2 * altura]
+        if perto:
+            destino[i] = min(perto)[1]
+
+    saida = []
+    for i, linha in enumerate(linhas):
+        if i in destino:
+            continue
+        if tem(linha, "marco") or not tem(linha, "numero"):
+            saida += [p[3] for p in sorted(linha, key=lambda p: p[1])]
+            continue
+        nomes = [p for p in linha if p[2] == "nome"]
+        if nomes and min(p[1] for p in nomes) > largura * 0.05:
+            nome = "TOTAL:"
+        else:
+            partes = [linhas[j] for j in sorted(
+                [i] + [k for k, d in destino.items() if d == i])]
+            nome = " ".join(p[3] for parte in partes
+                            for p in sorted(parte, key=lambda p: p[1])
+                            if p[2] == "nome")
+        if nome:
+            saida.append(nome)
+        saida += [p[3] for p in sorted(linha, key=lambda p: p[1])
+                  if p[2] == "numero"]
+    return saida
+
+
+def _texto_por_ocr(arquivo):
+    """
+    Texto do PDF sem camada de texto, lido por OCR e já no formato de
+    _ler_layout_empilhado(). None quando falta o português do Tesseract.
+    """
+    if not (PASTA_TESSDATA / "por.traineddata").exists():
+        return None
+    linhas = []
+    with pymupdf.open(arquivo) as documento:
+        for pagina in documento:
+            leitura = pagina.get_textpage_ocr(language="por", dpi=DPI_OCR,
+                                              full=True,
+                                              tessdata=str(PASTA_TESSDATA))
+            linhas += _linhas_do_ocr(pagina.get_text("words", textpage=leitura),
+                                     pagina.rect.width)
+    return "\n".join(linhas)
 
 
 def _competencia_do_cabecalho(tabela):
@@ -640,6 +894,7 @@ def ler_pdf(arquivo, avisos):
     # quando a quebra de página corta a tabela ao meio.
     fragmentos = {}
     secao_aberta = None
+    achou_cabecalho = False
 
     with pdfplumber.open(arquivo) as pdf:
         for numero, pagina in enumerate(pdf.pages, start=1):
@@ -652,11 +907,13 @@ def ler_pdf(arquivo, avisos):
                 paginas_sem_texto.append(numero)
 
             for tabela in pagina.find_tables():
-                dados = tabela.extract()
+                secao_embrulhada, dados = _desembrulhar(tabela.extract())
 
                 if _tem_cabecalho_tipo(dados):
+                    achou_cabecalho = True
                     inicio = _inicio_dos_dados(dados)
-                    secao = (_secao_da_tabela(pagina, tabela)
+                    secao = ((secao_embrulhada
+                              or _secao_da_tabela(pagina, tabela))
                              if inicio is not None else None)
                     # Toda tabela com cabeçalho encerra a anterior, mesmo
                     # sendo de uma seção que não interessa (tempos médios):
@@ -679,7 +936,13 @@ def ler_pdf(arquivo, avisos):
                 # inteira estar do outro lado da quebra, com só o cabeçalho
                 # sobrando na página anterior.
                 if secao_aberta and _parece_continuacao(dados):
-                    fragmentos[secao_aberta].append((dados, 0))
+                    fragmentos.setdefault(secao_aberta, []).append((dados, 0))
+
+            # A página que termina num título sem a legenda embaixo deixa
+            # essa seção aberta para a próxima, mesmo quando o cabeçalho
+            # dela não virou tabela própria (veio dentro da tabela que o
+            # navegador põe em volta da página).
+            secao_aberta = _secao_aberta_no_fim(conteudo) or secao_aberta
 
     if paginas_sem_texto:
         avisos.append((arquivo.name,
@@ -687,12 +950,38 @@ def ler_pdf(arquivo, avisos):
                        f" extraível: {', '.join(map(str, paginas_sem_texto))}"
                        " — provavelmente digitalizada(s)"))
 
-    if not fragmentos:
-        return None
+    # Seção -> (itens, total declarado). Sem tabela nenhuma com cabeçalho
+    # 'Tipo', o PDF pode estar no layout de celular do SEI ou sem texto
+    # nenhum; nos dois casos a leitura é pelo texto corrido.
+    secoes = None
+    por_ocr = False
+    if not achou_cabecalho:
+        if not texto.strip():
+            texto = _texto_por_ocr(arquivo)
+            if texto is None:
+                avisos.append((arquivo.name,
+                               "sem texto e sem OCR disponível — falta"
+                               f" {PASTA_TESSDATA / 'por.traineddata'}"))
+                return None
+            por_ocr = True
+        secoes, competencias = _ler_layout_empilhado(texto, arquivo, avisos)
+        if not secoes:
+            return None
+        avisos.append((arquivo.name,
+                       "PDF sem texto (provavelmente 'Microsoft Print to"
+                       " PDF') — lido por OCR; vale conferir os números"
+                       if por_ocr else
+                       "PDF no layout de celular do SEI (salvo com a janela"
+                       " do navegador estreita) — lido pelo texto; vale"
+                       " conferir os números"))
 
     unidade = _unidade_do_texto(texto)
     unidade_do_nome = _unidade_do_nome(arquivo)
-    if not unidade:
+    if por_ocr and unidade_do_nome:
+        # O OCR costuma trocar a barra da legenda por 'I'
+        # ('NITINITTRANS'); o nome do arquivo é mais confiável.
+        unidade = _nome_de_unidade(unidade_do_nome)
+    elif not unidade:
         unidade = unidade_do_nome
         if unidade:
             avisos.append((arquivo.name, "a legenda com a unidade não foi"
@@ -711,19 +1000,21 @@ def ler_pdf(arquivo, avisos):
     # Só as seções por período trazem ano e mês no cabeçalho; as de
     # tramitação e andamento vêm sem. Todas cobrem o mesmo período, então
     # basta a primeira que tiver o cabeçalho completo.
-    competencias = []
-    for pedacos in fragmentos.values():
-        if _tem_cabecalho_de_periodo(pedacos[0][0]):
-            competencias = _competencia_do_cabecalho(pedacos[0][0])
-            if competencias:
-                break
+    if secoes is None:
+        competencias = []
+        for pedacos in fragmentos.values():
+            if _tem_cabecalho_de_periodo(pedacos[0][0]):
+                competencias = _competencia_do_cabecalho(pedacos[0][0])
+                if competencias:
+                    break
+        secoes = {secao: _ler_itens(pedacos, arquivo, avisos)
+                  for secao, pedacos in fragmentos.items()}
     if not competencias:
         avisos.append((arquivo.name,
                        "não deu para ler a competência no cabeçalho"))
 
     lidas = {}
-    for secao, pedacos in fragmentos.items():
-        itens, total_declarado = _ler_itens(pedacos, arquivo, avisos)
+    for secao, (itens, total_declarado) in secoes.items():
         lidas[secao] = itens
         soma = sum(itens.values())
         if total_declarado is not None and total_declarado != soma:
