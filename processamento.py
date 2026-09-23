@@ -18,7 +18,8 @@ from AutosPagosRenainf.autosPagos import rodar_autos_pagos as _fn_autos_pagos
 from ColabDemandas.colabDemandas import rodar_colab_demandas as _fn_colab
 from DetranLimpo.detranLimpo import rodar_detran_limpo as _fn_detran_limpo
 from RemovedorDuplicadasDetran.removerDuplicada import mesclar_arquivos_excel as _fn_remover_duplicadas
-from EstatisticasSEI.sei_estatisticas import rodar_sei_estatisticas as _fn_sei
+from EstatisticasSEIAtual.sei_estatisticas import rodar_sei_estatisticas as _fn_sei
+from EstatisticasSEINovo.estatisticasSEI import rodar_estatisticas_sei as _fn_sei_novo
 from BloquearPlanilha.bloqueador import rodar_bloqueio as _fn_bloqueio
 
 # Ferramentas que aceitam vários arquivos de uma vez:
@@ -49,6 +50,9 @@ SELECAO_MULTIPLA = {
         [("Arquivos CSV", "*.csv")],
     ),
 }
+# Estatísticas SEI (Novo) não entra aqui: ela abre a própria janela de
+# competência (EstatisticasSEINovo/seletor.py), que já traz a seleção
+# manual de PDFs como alternativa.
 
 
 def _destino_livre(caminho):
@@ -85,16 +89,26 @@ class GerenciadorProcessos:
         # planilha por arquivo de entrada geram vários de uma vez.
         self._ultimos_gerados = []
 
-    def iniciar_tarefa(self, pasta, nome_do_arquivo):
-        """Prepara o diretório de entrada e inicia a thread de processamento."""
+    def iniciar_tarefa(self, pasta, nome_do_arquivo, arquivos=None):
+        """
+        Prepara o diretório de entrada e inicia a thread de processamento.
+
+        'arquivos' permite que a ferramenta escolha os arquivos por conta
+        própria — é o caso das Estatísticas SEI, que os busca na pasta do
+        ano/mês em vez de abrir a caixa de seleção.
+        """
         if self._em_execucao:
             self.callback_erro("Aguarde o processamento atual terminar.")
             return
 
         arquivos_para_copiar = []
-        
+
         # 1. Abre a janela de seleção de arquivos (Múltipla ou Única)
-        if nome_do_arquivo in SELECAO_MULTIPLA:
+        if arquivos is not None:
+            arquivos_para_copiar = list(arquivos)
+            if not arquivos_para_copiar:
+                return
+        elif nome_do_arquivo in SELECAO_MULTIPLA:
             titulo, filetypes = SELECAO_MULTIPLA[nome_do_arquivo]
             caminhos = filedialog.askopenfilenames(
                 title=titulo,
@@ -127,10 +141,16 @@ class GerenciadorProcessos:
                 if os.path.isfile(caminho_antigo):
                     os.remove(caminho_antigo)
             
-            # Copia os arquivos selecionados para a pasta da ferramenta
+            # Copia os arquivos selecionados para a pasta da ferramenta.
+            # Arquivos vindos de pastas diferentes podem ter o mesmo nome —
+            # é o caso das Estatísticas SEI, que têm uma pasta por unidade
+            # com o PDF sempre chamado igual. Copiar por cima faria sumir
+            # todos menos o último, sem nenhum aviso.
             for arq in arquivos_para_copiar:
-                shutil.copy(arq, pasta_entrada)
-                print(f"DEBUG: Arquivo copiado com sucesso para {pasta_entrada}")
+                destino = _destino_livre(
+                    os.path.join(pasta_entrada, os.path.basename(arq)))
+                shutil.copy(arq, destino)
+                print(f"DEBUG: Arquivo copiado com sucesso para {destino}")
             
             # 4. Inicia o processamento em background
             self._em_execucao = True
@@ -252,5 +272,6 @@ FERRAMENTAS = {
     "colabDemandas.py":         _fn_colab,
     "detranLimpo.py":           _fn_detran_limpo,
     "sei_estatisticas":         _fn_sei,
+    "estatisticasSEI.py":       _fn_sei_novo,
     "removerDuplicada.py":      _fn_remover_duplicadas,
 }
