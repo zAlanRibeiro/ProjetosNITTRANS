@@ -3,6 +3,10 @@
 */backup/
 */resultados/
 
+# Preferências locais de cada máquina (ex.: caminho da pasta sincronizada
+# das Estatísticas SEI, que muda de computador para computador)
+*/config.json
+
 # Build PyInstaller
 build/
 dist/

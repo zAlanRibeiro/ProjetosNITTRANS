@@ -7,6 +7,10 @@ import sys
 import tkinter as tk
 from tkinter import filedialog
 
+from geopy.exc import (
+    GeocoderInsufficientPrivileges, GeocoderRateLimited, GeocoderTimedOut,
+    GeocoderUnavailable,
+)
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 from tqdm import tqdm
@@ -14,6 +18,17 @@ from tqdm import tqdm
 
 CACHE_FILE = 'cache_enderecos.json'
 INTERVALO_SAVE_CACHE = 10
+
+# Esperas (em segundos) antes de repetir uma consulta que o servidor recusou
+# ou deixou sem resposta. Esgotadas todas, a execução para de consultar.
+ESPERAS_NOVA_TENTATIVA = (5, 15, 30)
+ERROS_DO_SERVIDOR = (
+    GeocoderRateLimited, GeocoderTimedOut, GeocoderUnavailable,
+    GeocoderInsufficientPrivileges,
+)
+MOTIVO_SERVIDOR_INDISPONIVEL = (
+    "OpenStreetMap recusando consultas — rode o arquivo novamente mais tarde"
+)
 
 # Faixas do território brasileiro, usadas para detectar colunas trocadas
 FAIXA_LAT_BR = (-34.0, 6.0)
@@ -163,12 +178,50 @@ def coluna_de_saida(df, nome):
     return nome if nome not in df.columns else f"{nome}_OSM"
 
 
+class ConsultaNominatim:
+    """Consulta endereços no Nominatim respeitando o limite do servidor.
+
+    Quando o servidor recusa (erro 429, bloqueio do IP) ou não responde, espera
+    e repete a mesma consulta algumas vezes. Se continuar recusando, marca o
+    servidor como indisponível e a execução segue sem consultar o restante.
+    Antes, com 5 novas tentativas por coordenada, cada uma podia gastar quase
+    um minuto: um arquivo de 200 linhas levava horas e as coordenadas saíam
+    sem endereço do mesmo jeito.
+    """
+
+    def __init__(self):
+        geolocator = Nominatim(user_agent="geo_automacao_nittrans", timeout=10)
+        self._reverse = RateLimiter(
+            geolocator.reverse,
+            min_delay_seconds=1.2,
+            max_retries=0,
+            swallow_exceptions=False
+        )
+        self.servidor_indisponivel = False
+
+    def buscar(self, lat, lon):
+        """Devolve o resultado do geopy, ou None se não há endereço no ponto.
+
+        Uma falha de consulta levanta a exceção do geopy, para que a coordenada
+        não vá para o cache como se não tivesse endereço.
+        """
+        for espera in (*ESPERAS_NOVA_TENTATIVA, None):
+            try:
+                return self._reverse((lat, lon), language='pt')
+            except ERROS_DO_SERVIDOR as erro:
+                if espera is None:
+                    self.servidor_indisponivel = True
+                    raise
+                print(f"\n[!] O OpenStreetMap recusou a consulta ({erro}). Nova tentativa em {espera}s...")
+                time.sleep(espera)
+
+
 def _salvar_cache(cache):
     with open(CACHE_FILE, 'w', encoding='utf-8') as f:
         json.dump(cache, f, ensure_ascii=False, indent=2)
 
 
-def _processar_arquivo(caminho_completo, cache, reverse):
+def _processar_arquivo(caminho_completo, cache, consulta):
     nome_arquivo = os.path.basename(caminho_completo)
 
     print("\n========================================")
@@ -217,6 +270,7 @@ def _processar_arquivo(caminho_completo, cache, reverse):
     ruas, bairros, numeros, cidades, ceps, estados = [], [], [], [], [], []
     nao_encontrados = []
     novos_no_cache = 0
+    linhas_com_falha = 0
 
     _sem_console = sys.stderr is None or sys.stdout is None
     for _, row in tqdm(df_coords.iterrows(), total=len(df_coords), disable=_sem_console):
@@ -233,40 +287,56 @@ def _processar_arquivo(caminho_completo, cache, reverse):
         lon_round = round(lon, 4)
         chave = f"{lat_round:.4f},{lon_round:.4f}"
 
+        motivo_falha = ''
         if chave in cache:
             resultado = cache[chave]
         else:
             resultado = {'rua': '', 'bairro': '', 'numero': '', 'cidade': '', 'cep': '', 'estado': ''}
-            try:
-                location = reverse((lat_round, lon_round), language='pt', timeout=30)
-                if location and 'address' in location.raw:
-                    address = location.raw['address']
-                    resultado['rua'] = (
-                        address.get('road') or address.get('pedestrian')
-                        or address.get('footway') or address.get('residential')
-                        or address.get('path') or ''
+            if consulta.servidor_indisponivel:
+                motivo_falha = MOTIVO_SERVIDOR_INDISPONIVEL
+            else:
+                try:
+                    location = consulta.buscar(lat_round, lon_round)
+                    if location and 'address' in location.raw:
+                        address = location.raw['address']
+                        resultado['rua'] = (
+                            address.get('road') or address.get('pedestrian')
+                            or address.get('footway') or address.get('residential')
+                            or address.get('path') or ''
+                        )
+                        resultado['bairro'] = (
+                            address.get('suburb') or address.get('neighbourhood')
+                            or address.get('city_district') or address.get('quarter') or ''
+                        )
+                        resultado['numero'] = address.get('house_number') or ''
+                        resultado['cidade'] = (
+                            address.get('city') or address.get('town')
+                            or address.get('municipality') or ''
+                        )
+                        resultado['cep'] = address.get('postcode') or ''
+                        resultado['estado'] = address.get('state') or ''
+                except Exception as erro:
+                    print(f"\nErro coordenada: {lat_round:.4f}, {lon_round:.4f} — {erro}")
+                    motivo_falha = (
+                        MOTIVO_SERVIDOR_INDISPONIVEL if consulta.servidor_indisponivel
+                        else f"erro na consulta ({erro})"
                     )
-                    resultado['bairro'] = (
-                        address.get('suburb') or address.get('neighbourhood')
-                        or address.get('city_district') or address.get('quarter') or ''
-                    )
-                    resultado['numero'] = address.get('house_number') or ''
-                    resultado['cidade'] = (
-                        address.get('city') or address.get('town')
-                        or address.get('municipality') or ''
-                    )
-                    resultado['cep'] = address.get('postcode') or ''
-                    resultado['estado'] = address.get('state') or ''
-            except Exception as erro:
-                print(f"\nErro coordenada: {lat_round:.4f}, {lon_round:.4f} — {erro}")
 
-            cache[chave] = resultado
-            novos_no_cache += 1
-            if novos_no_cache % INTERVALO_SAVE_CACHE == 0:
-                _salvar_cache(cache)
+            # Falhas de consulta não entram no cache: gravadas como endereço
+            # vazio, nunca mais seriam consultadas, nem depois que o servidor
+            # voltasse a responder.
+            if not motivo_falha:
+                cache[chave] = resultado
+                novos_no_cache += 1
+                if novos_no_cache % INTERVALO_SAVE_CACHE == 0:
+                    _salvar_cache(cache)
 
         if not str(resultado['rua']).strip() and not str(resultado['bairro']).strip():
-            nao_encontrados.append(f"Arquivo: {nome_arquivo} | Latitude: {lat_round:.4f} | Longitude: {lon_round:.4f}")
+            linha = f"Arquivo: {nome_arquivo} | Latitude: {lat_round:.4f} | Longitude: {lon_round:.4f}"
+            if motivo_falha:
+                linha += f" | Motivo: {motivo_falha}"
+                linhas_com_falha += 1
+            nao_encontrados.append(linha)
 
         ruas.append(resultado['rua'])
         bairros.append(resultado['bairro'])
@@ -279,6 +349,14 @@ def _processar_arquivo(caminho_completo, cache, reverse):
         caminho_txt = os.path.join('resultados', 'coordenadas_nao_encontradas.txt')
         with open(caminho_txt, 'a', encoding='utf-8') as f:
             f.write('\n'.join(nao_encontrados) + '\n')
+
+    if linhas_com_falha:
+        print(
+            f"\n[!] {linhas_com_falha} linha(s) ficaram sem endereço por falha na consulta"
+            " e estão em resultados/coordenadas_nao_encontradas.txt. Rode o arquivo"
+            " novamente mais tarde: o que já foi encontrado vem do cache e só essas"
+            " coordenadas serão consultadas."
+        )
 
     # A FORMATAÇÃO: Força estritamente string com ponto e 4 casas
     df['Latitude_Formatada'] = df['lat_aux'].apply(lambda x: f"{x:.4f}" if pd.notna(x) else "")
@@ -365,23 +443,20 @@ def processar_sistema_pastas(permitir_janela_propria=False):
         print("\n[✓] Cache encontrado.")
         with open(CACHE_FILE, 'r', encoding='utf-8') as f:
             cache = json.load(f)
+        # Versões anteriores gravavam falhas de consulta como endereço vazio.
+        # Como não dá para diferenciá-las de um ponto realmente sem endereço,
+        # toda entrada vazia é consultada de novo (uma vez por execução)
+        cache = {chave: valor for chave, valor in cache.items() if any(valor.values())}
     else:
         cache = {}
 
-    geolocator = Nominatim(user_agent="geo_automacao_nittrans")
-    reverse = RateLimiter(
-        geolocator.reverse,
-        min_delay_seconds=1.2,
-        max_retries=5,
-        error_wait_seconds=5,
-        swallow_exceptions=True
-    )
+    consulta = ConsultaNominatim()
 
     dfs_processados = []
 
     # Processa os arquivos selecionados
     for caminho_arquivo in arquivos_selecionados:
-        df_processado, nome_arquivo = _processar_arquivo(caminho_arquivo, cache, reverse)
+        df_processado, nome_arquivo = _processar_arquivo(caminho_arquivo, cache, consulta)
         if df_processado is not None:
             dfs_processados.append((df_processado, nome_arquivo))
 

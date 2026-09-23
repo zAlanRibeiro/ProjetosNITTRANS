@@ -1,9 +1,30 @@
+# Dependencias do Hub. Instale num ambiente proprio:
+#   python -m venv .venv
+#   .venv\Scripts\python.exe -m pip install -r requirements.txt pyinstaller
+
+# Interface
 customtkinter
 Pillow
-geopy
-pdfplumber
-pandas
-tqdm
-openpyxl
-matplotlib
 
+# Leitura de PDF
+pdfplumber
+PyMuPDF          # importado como 'fitz' em TarjarPDF/logica.py
+
+# Planilhas e dados
+pandas
+openpyxl
+xlrd             # .xls antigo; sem ele o read_excel do DetranLimpo falha
+
+# Geocodificacao
+geopy
+requests         # DetranLimpo/baixar_base_niteroi.py
+
+# Diversos
+thefuzz          # comparacao aproximada de nomes em DetranLimpo
+cryptography     # Criptografia/crypto.py
+matplotlib
+tqdm
+
+# So para gerar a documentacao (gerar_doc_tecnico.py, doc_modelo.py);
+# nao entra no bundle do PyInstaller, que parte de main.py.
+python-docx

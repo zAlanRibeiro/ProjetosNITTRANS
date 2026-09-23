@@ -77,10 +77,35 @@ DICAS = {
     "tarjar": (
         "Oculta CPFs, e-mails e telefones de PDFs para adequação à LGPD."
     ),
-    "sei_estatisticas": "Extrai dados de tabelas de estatísticas do SEI para Excel.",
+    "sei_estatisticas": (
+        "Versão atual: lê um PDF de estatísticas do SEI e gera a planilha"
+        " e o gráfico de uma unidade."
+    ),
+    "estatisticasSEI.py": (
+        "Versão nova: você escolhe o ano e o mês, e ela busca os PDFs na"
+        " pasta sincronizada do SharePoint — um por unidade — gerando uma"
+        " planilha só, com uma linha por unidade e tipo de processo,"
+        " pronta para tabela dinâmica. Enquanto a biblioteca não estiver"
+        " sincronizada, dá para escolher os PDFs à mão. Não gera gráfico."
+    ),
     "bloquear_planilha": (
         "Aplica proteção total com senha."
     ),
+}
+
+
+def _escolher_competencia_sei(janela):
+  """Janela de ano/mês das Estatísticas SEI (importada só quando usada)."""
+  from EstatisticasSEINovo.seletor import escolher_pdfs
+
+  return escolher_pdfs(janela)
+
+
+# Ferramentas que escolhem os próprios arquivos, em vez da caixa de seleção
+# padrão do Hub. O valor recebe a janela principal e devolve a lista de
+# caminhos, ou None quando o usuário desiste.
+SELETOR_PROPRIO = {
+    "estatisticasSEI.py": _escolher_competencia_sei,
 }
 
 
@@ -269,7 +294,12 @@ class HubApp(ctk.CTk):
             "normal",
         ),
         ("6. Processos Abertos", "ProcessosAbertos", "processosAbertos.py", "normal"),
-        ("7. Estatísticas SEI", "EstatisticasSEI", "sei_estatisticas", "normal"),
+        (
+            "7. Estatísticas SEI (Atual)",
+            "EstatisticasSEIAtual",
+            "sei_estatisticas",
+            "normal",
+        ),
         (
             "8. Mesclar e Remover Duplicadas",
             "RemovedorDuplicadasDetran",
@@ -288,11 +318,19 @@ class HubApp(ctk.CTk):
             "colabDemandas.py",
             "normal",
         ),
+        (
+            "11. Estatísticas SEI (Novo)",
+            "EstatisticasSEINovo",
+            "estatisticasSEI.py",
+            "normal",
+        ),
     ]
 
-    start_y = 175
+    # O espaçamento acompanha a quantidade de ferramentas: com 11 botões o
+    # passo de 48 invadia o separador da área de Segurança, logo abaixo.
+    start_y = 170
     for i, (nome, pasta, script, estado) in enumerate(tools):
-      y_pos = start_y + (i * 48)
+      y_pos = start_y + (i * 45)
       self._criar_botao_flutuante(nome, pasta, script, y_pos, estado)
 
     # ── Área de Segurança ─────────────────────────────────────────────────
@@ -309,7 +347,7 @@ class HubApp(ctk.CTk):
 
     btn_c = ctk.CTkButton(
         self,
-        text="  11. Criptografar Arquivos",
+        text="  12. Criptografar Arquivos",
         anchor="w",
         height=40,
         width=420,
@@ -326,7 +364,7 @@ class HubApp(ctk.CTk):
 
     btn_t = ctk.CTkButton(
         self,
-        text="  12. Tarjar PDF",
+        text="  13. Tarjar PDF",
         anchor="w",
         height=40,
         width=420,
@@ -343,7 +381,7 @@ class HubApp(ctk.CTk):
 
     btn_b = ctk.CTkButton(
         self,
-        text="  13. Bloquear Planilha",
+        text="  14. Bloquear Planilha",
         anchor="w",
         height=40,
         width=420,
@@ -515,6 +553,16 @@ class HubApp(ctk.CTk):
     self._pasta_atual = pasta
     self.canvas.itemconfig(self.id_status, text="")
     self.btn_exportar.place_forget()
+
+    # As Estatísticas SEI escolhem os arquivos por competência (ano e mês)
+    # na pasta sincronizada, em vez da caixa de seleção padrão do Hub.
+    if script in SELETOR_PROPRIO:
+      arquivos = SELETOR_PROPRIO[script](self)
+      if not arquivos:
+        return
+      self.logica.iniciar_tarefa(pasta, script, arquivos=arquivos)
+      return
+
     self.logica.iniciar_tarefa(pasta, script)
 
   def atualizar_status(self, mensagem, cor=COR_LARANJA):
