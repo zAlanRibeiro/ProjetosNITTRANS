@@ -3,8 +3,13 @@
 
 Mesmo conteúdo da Documentacao_HubNITTRANS (visão geral, estrutura de pastas,
 fluxo, ferramenta por ferramenta, dependências e build), atualizado para a
-versão 5.1 — 11 ferramentas — e organizado no padrão visual do modelo
+versão 5.2 e organizado no padrão visual do modelo
 "FERRAMENTA ESTATÍSTICAS SEI.docx".
+
+PENDÊNCIA: o Hub tem 14 ferramentas e este documento ainda descreve 11.
+Faltam Autos Pagos Renainf, Demandas Colab e Estatísticas SEI (Novo), tanto
+na tabela da seção 1 quanto nas seções 4.x. A numeração daqui também já não
+bate com a do Hub (aqui Criptografar é a 9; no Hub, a 12).
 """
 import os
 
@@ -22,7 +27,7 @@ d.data('Niterói, 29 de julho de 2026')
 d.ficha([
     ('Sistema', 'Hub de Ferramentas — Gestão e Modernização'),
     ('Órgão', 'NITTRANS — Niterói Transporte S.A. / Prefeitura de Niterói/RJ'),
-    ('Versão', '5.1'),
+    ('Versão', '5.2'),
     ('Tecnologia',
      'Python 3.13 · CustomTkinter · pandas · pdfplumber · PyMuPDF · Tesseract OCR · '
      'matplotlib · cryptography · PyInstaller · Inno Setup'),
@@ -69,7 +74,7 @@ d.tabela(
          'Extrai processos deferidos/indeferidos de PDFs GAIDE'],
         ['6', 'Processos Abertos', 'ProcessosAbertos/processosAbertos.py',
          'Lê relatórios PDF de Processos Abertos e exporta para Excel'],
-        ['7', 'Estatísticas SEI', 'EstatisticasSEI/sei_estatisticas.py',
+        ['7', 'Estatísticas SEI (Atual)', 'EstatisticasSEIAtual/sei_estatisticas.py',
          'Lê o relatório de Estatísticas da Unidade do SEI e gera gráfico e planilha'],
         ['8', 'Mesclar e Remover Duplicadas', 'RemovedorDuplicadasDetran/removerDuplicada.py',
          'Consolida várias planilhas em um CSV único sem linhas repetidas'],
@@ -99,7 +104,7 @@ d.codigo([
     '|-- gerar_doc_tecnico.py          <- Gera esta documentacao tecnica',
     '|-- limpar_cache_ruas.py          <- Manutencao do cache de ruas do Detran Limpo',
     '|-- hub.spec                      <- Configuracao do PyInstaller',
-    '|-- version_info.txt              <- Metadados de autoria do .exe (v5.1)',
+    '|-- version_info.txt              <- Metadados de autoria do .exe (v5.2)',
     '|-- build.ps1                     <- Script de build automatizado',
     '|-- requirements.txt              <- Dependencias de desenvolvimento',
     '|-- logo.ico / LogoNittrans.jpeg  <- Identidade visual',
@@ -122,8 +127,10 @@ d.codigo([
     '|   |-- pdfDeferidoIndeferido.py  <- Ferramenta 5',
     '|-- ProcessosAbertos/',
     '|   |-- processosAbertos.py       <- Ferramenta 6',
-    '|-- EstatisticasSEI/',
+    '|-- EstatisticasSEIAtual/',
     '|   |-- sei_estatisticas.py       <- Ferramenta 7',
+    '|-- EstatisticasSEINovo/',
+    '|   |-- estatisticasSEI.py        <- Ferramenta 11',
     '|-- RemovedorDuplicadasDetran/',
     '|   |-- removerDuplicada.py       <- Ferramenta 8',
     '|-- Criptografia/',
@@ -392,8 +399,8 @@ d.tabela(
 d.corpo('Saída: processos_abertos_{data_hora}.xlsx.')
 
 # ── 4.7 ──────────────────────────────────────────────────────────────────────
-d.h4('4.7  Estatísticas SEI')
-d.rotulo('Arquivo', 'EstatisticasSEI/sei_estatisticas.py')
+d.h4('4.7  Estatísticas SEI (Atual)')
+d.rotulo('Arquivo', 'EstatisticasSEIAtual/sei_estatisticas.py')
 d.h5('O que faz')
 d.corpo(
     'Lê o relatório "Estatísticas da Unidade" exportado do SEI em PDF e gera, na mesma '
@@ -639,7 +646,7 @@ d.passos([
     'Verifica se logo.ico existe.',
     'Remove builds anteriores (build/ e dist/).',
     'Empacota com PyInstaller a partir do hub.spec — gera dist/HubNITTRANS/. Os metadados de autoria definidos em version_info.txt são embutidos no .exe e ficam visíveis em Propriedades → Detalhes no Windows Explorer.',
-    'Compila o instalador com Inno Setup — gera installer/Output/Setup_HubNITTRANS_v5.1.exe.',
+    'Compila o instalador com Inno Setup — gera installer/Output/Setup_HubNITTRANS_v5.2.exe.',
     'O instalador inclui os caches pré-preenchidos. Em instalações novas eles são copiados; em reinstalações o cache acumulado do usuário é preservado (flag onlyifdoesntexist).',
 ])
 d.corpo(
@@ -650,7 +657,7 @@ d.corpo(
 d.tabela(
     ['Item', 'Detalhe'],
     [
-        ['Versão atual', '5.1'],
+        ['Versão atual', '5.2'],
         ['Tamanho do instalador', '~116 MB'],
         ['Compressão', 'lzma2/ultra64'],
         ['Diretório de instalação', '%LOCALAPPDATA%\\Programs\\HubNITTRANS\\'],

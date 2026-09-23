@@ -6,11 +6,39 @@ function Write-Ok($msg)   { Write-Host "    [OK] $msg" -ForegroundColor Green }
 function Write-Warn($msg) { Write-Host "    [!]  $msg" -ForegroundColor Yellow }
 function Write-Fail($msg) { Write-Host "    [X]  $msg" -ForegroundColor Red }
 
-# 0. Verificar PyInstaller
+# 0. Escolher o interpretador
+# O build usa o venv do projeto. O Python da Microsoft Store, unico da
+# maquina, ja perdeu os pacotes uma vez quando a Loja atualizou o cache, e
+# o build morria com um traceback obscuro. O venv nao sofre disso.
 Write-Step "Verificando dependencias"
-$ver = python -m PyInstaller --version 2>$null
-if (-not $ver) {
-    Write-Fail "PyInstaller nao encontrado. Execute: pip install pyinstaller"
+$py = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
+if (-not (Test-Path $py)) {
+    Write-Fail "Ambiente virtual nao encontrado em .venv\"
+    Write-Host "    Crie-o com:"
+    Write-Host "      python -m venv .venv"
+    Write-Host "      .venv\Scripts\python.exe -m pip install -r requirements.txt pyinstaller"
+    exit 1
+}
+Write-Ok "Usando .venv"
+
+# O PowerShell 5.1 embrulha cada linha do stderr de um programa externo num
+# ErrorRecord quando a saida e redirecionada. Com o $ErrorActionPreference =
+# 'Stop' do topo isso vira erro terminante, e o script morreria aqui exibindo
+# o traceback cru do Python em vez da mensagem abaixo. Por isso a preferencia
+# e baixada so em volta da chamada, e o veredito sai do codigo de saida.
+$eap = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+# O ToString() achata os ErrorRecord em texto puro: sem ele a saida sai
+# enfeitada com CategoryInfo e FullyQualifiedErrorId, escondendo a
+# ultima linha do traceback, que e a unica que interessa.
+$ver = & $py -m PyInstaller --version 2>&1 | ForEach-Object { $_.ToString() }
+$rc = $LASTEXITCODE
+$ErrorActionPreference = $eap
+
+if ($rc -ne 0) {
+    Write-Fail "PyInstaller nao esta utilizavel. O Python respondeu:"
+    Write-Host ($ver | Out-String).TrimEnd()
+    Write-Fail "Reinstale: .venv\Scripts\python.exe -m pip install -r requirements.txt pyinstaller"
     exit 1
 }
 Write-Ok "PyInstaller $ver encontrado"
@@ -18,7 +46,7 @@ Write-Ok "PyInstaller $ver encontrado"
 # 1. Verificar logo.ico (engrenagem laranja, gerada manualmente via icon_source.png)
 Write-Step "Verificando logo.ico"
 if (-not (Test-Path "logo.ico")) {
-    Write-Fail "logo.ico nao encontrado. Gere-o rodando: python -c ""from PIL import Image; img=Image.open('icon_source.png'); img.save('logo.ico',format='ICO',sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])"" "
+    Write-Fail "logo.ico nao encontrado. Gere-o rodando: .venv\Scripts\python.exe -c ""from PIL import Image; img=Image.open('icon_source.png'); img.save('logo.ico',format='ICO',sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])"" "
     exit 1
 }
 Write-Ok "logo.ico encontrado"
@@ -30,7 +58,7 @@ Write-Ok "Pastas build/ e dist/ removidas"
 
 # 3. PyInstaller
 Write-Step "Empacotando com PyInstaller (aguarde alguns minutos...)"
-python -m PyInstaller hub.spec --noconfirm
+& $py -m PyInstaller hub.spec --noconfirm
 if ($LASTEXITCODE -ne 0) { Write-Fail "PyInstaller falhou."; exit 1 }
 Write-Ok "Bundle gerado em dist\HubNITTRANS\"
 
@@ -58,6 +86,6 @@ Write-Host "============================================" -ForegroundColor Green
 Write-Host "  BUILD CONCLUIDO COM SUCESSO!" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "  Instalador: installer\Output\Setup_HubNITTRANS_v5.1.exe"
+Write-Host "  Instalador: installer\Output\Setup_HubNITTRANS_v5.2.exe"
 Write-Host "  Bundle    : dist\HubNITTRANS\"
 Write-Host ""

@@ -5,7 +5,7 @@
 ; ============================================================
 
 #define AppName    "Hub de Ferramentas NITTRANS"
-#define AppVersion "5.1"
+#define AppVersion "5.2"
 #define AppExeName "HubNITTRANS.exe"
 #define AppId      "NITTRANS-HUB-FERRAMENTAS-2026"
 
