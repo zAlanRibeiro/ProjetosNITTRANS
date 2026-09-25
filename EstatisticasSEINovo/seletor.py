@@ -167,7 +167,7 @@ class JanelaCompetencia(ctk.CTkToplevel):
                 salvar_config(self._pasta_raiz)
 
         self.title("Estatísticas SEI — escolher competência")
-        self.geometry("520x430")
+        self.geometry("520x500")
         self.resizable(False, False)
         self.configure(fg_color=COR_VIDRO_BLENDED)
         self.transient(mestre)
@@ -239,13 +239,8 @@ class JanelaCompetencia(ctk.CTkToplevel):
         self._menu_mes.set(
             f"{self._mes_padrao} — {MESES_NOME[self._mes_padrao]}")
 
-        # Situação da busca
-        self._rotulo_situacao = ctk.CTkLabel(
-            self, text="", font=(_FONTE, 12), text_color=_AZUL_SUB,
-            wraplength=470, justify="left", anchor="w")
-        self._rotulo_situacao.pack(fill="x", padx=24, pady=(18, 0))
-
-        # Ações
+        # Ações — empacotadas antes da situação para os botões nunca
+        # serem espremidos quando a mensagem ocupar várias linhas.
         acoes = ctk.CTkFrame(self, fg_color="transparent")
         acoes.pack(side="bottom", fill="x", padx=24, pady=20)
         self._botao_ok = ctk.CTkButton(
@@ -263,6 +258,12 @@ class JanelaCompetencia(ctk.CTkToplevel):
             fg_color="transparent", text_color=_AZUL_SUB,
             hover_color="#123A5E", command=self._cancelar).pack(fill="x",
                                                                 pady=(4, 0))
+
+        # Situação da busca
+        self._rotulo_situacao = ctk.CTkLabel(
+            self, text="", font=(_FONTE, 12), text_color=_AZUL_SUB,
+            wraplength=470, justify="left", anchor="w")
+        self._rotulo_situacao.pack(fill="x", padx=24, pady=(18, 0))
 
         self._recarregar_anos()
 
