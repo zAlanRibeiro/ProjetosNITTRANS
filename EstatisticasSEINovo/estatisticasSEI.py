@@ -108,8 +108,6 @@ ARQUIVO_CONFIG = "config.json"
 # não aponta unidade nenhuma por si só.
 # Ao criar ou extinguir unidade no SEI, atualizar aqui.
 UNIDADES_NITTRANS = (
-    "NIT-NITTRANS-PRES",
-    "NIT-NITTRANS-CHEFGAB",
     "NIT-NITTRANS-DEPGM",
     "NIT-NITTRANS-DIVEST",
     "NIT-NITTRANS-DEPCS",
@@ -125,7 +123,6 @@ UNIDADES_NITTRANS = (
     "NIT-NITTRANS-DIVARC",
     "NIT-NITTRANS-DIVGF",
     "NIT-NITTRANS-COORCI",
-    "NIT-NITTRANS-DEPCST",
     "NIT-NITTRANS-DIRADM",
     "NIT-NITTRANS-DEPADM",
     "NIT-NITTRANS-DIVAO",
@@ -1152,22 +1149,6 @@ def _ordenar(tabela, coluna_grupo, ordem_grupo, coluna_tipo):
 # ==========================================
 # 4. Geração da planilha
 # ==========================================
-def _caminho_livre(caminho):
-    """
-    Nunca sobrescreve uma planilha já existente: se o nome estiver ocupado,
-    acrescenta ' (2)', ' (3)'... como o Windows faz.
-    """
-    if not caminho.exists():
-        return caminho
-    contador = 2
-    while True:
-        candidato = caminho.with_name(
-            f"{caminho.stem} ({contador}){caminho.suffix}")
-        if not candidato.exists():
-            return candidato
-        contador += 1
-
-
 def _formatar_aba(ws, colunas):
     fonte_cabecalho = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
     fill_cabecalho = PatternFill(
@@ -1227,7 +1208,8 @@ def copiar_para_biblioteca(caminho_saida):
         return None
 
     try:
-        alvo = _caminho_livre(destino / caminho_saida.name)
+        # Um arquivo por mês: rodar de novo substitui o anterior.
+        alvo = destino / caminho_saida.name
         shutil.copy(caminho_saida, alvo)
         return alvo
     except OSError as erro:
@@ -1414,7 +1396,8 @@ def rodar_estatisticas_sei():
 
     nome_arquivo = "_".join(
         parte for parte in (NOME_SAIDA, competencia, SUFIXO_SAIDA) if parte)
-    caminho_saida = _caminho_livre(PASTA_RESULTADOS / f"{nome_arquivo}.xlsx")
+    # Um arquivo por mês: rodar de novo substitui o anterior.
+    caminho_saida = PASTA_RESULTADOS / f"{nome_arquivo}.xlsx"
 
     try:
         gerar_excel(tabela, documentos, caminho_saida)
