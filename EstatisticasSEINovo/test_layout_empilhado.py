@@ -2,7 +2,8 @@
 # Rodar: python test_layout_empilhado.py
 from pathlib import Path
 
-from estatisticasSEI import _ler_layout_empilhado, _linhas_do_ocr
+from estatisticasSEI import (_desembrulhar_continuacao, _ler_layout_empilhado,
+                             _linhas_do_ocr)
 
 TEXTO = """16/09/2026, 10:47 SEI - Estatísticas da Unidade
 Processos com andamento fechado na unidade ao final do período:
@@ -89,4 +90,24 @@ assert secoes == {"processos": ({
     "Contratação: Realizar Gestão de Contratos: Aditivo e/ou Prorrogação": 1},
     2)}, secoes
 assert avisos == [], avisos
+
+# Continuação da tabela embrulhada na tabela da página (DEPDOIV, set/2026):
+# a primeira coluna é o texto da página inteira.
+EMBRULHADA = [
+    ["Ouvidoria: Manifestação - Reclamação, Sugestão,\n1\nSolicitação e Elogio"
+     "\nTOTAL: 31\nProcessos com andamento fechado na unidade ao final do"
+     " período (NIT/NITTRAN",
+     "Ouvidoria: Manifestação - Reclamação, Sugestão,\nSolicitação e Elogio",
+     "1", ""],
+    [None, "TOTAL:", "31", None],
+    [None, None, "", None],
+]
+assert _desembrulhar_continuacao(EMBRULHADA) == [
+    ["Ouvidoria: Manifestação - Reclamação, Sugestão,\nSolicitação e Elogio",
+     "1", ""],
+    ["TOTAL:", "31", None],
+    [None, "", None],
+]
+COMUM = [["Administrativo: Obras", "2026", "1"], ["TOTAL:", "1", "1"]]
+assert _desembrulhar_continuacao(COMUM) == COMUM
 print("ok")

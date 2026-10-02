@@ -573,6 +573,32 @@ def _desembrulhar(dados):
     return secao, dados[inicio:fim]
 
 
+def _desembrulhar_continuacao(dados):
+    """
+    Tira a continuação de tabela de dentro da tabela que o navegador põe em
+    volta da página. Aí a primeira coluna é o texto da página inteira, só
+    na primeira linha, e a tabela de verdade vem nas colunas seguintes:
+
+      [<texto da página>, 'Administrativo: Obras', '1', '']
+      [None,              'Financeiro: Pagamento', '1', None]
+
+    Sem isso, o texto da página vira nome de tipo e as demais linhas, sem
+    nome na primeira coluna, somem. Devolve os dados intactos quando a
+    tabela não está embrulhada.
+    """
+    if not dados or not dados[0] or len(dados[0]) < 3:
+        return dados
+    pagina = _texto(dados[0][0])
+    primeiro = (str(dados[0][1] or "").strip().splitlines() or [""])[0]
+    primeiro = _texto(primeiro)
+    if (not primeiro or primeiro.replace(".", "").isdigit()
+            or primeiro not in pagina or pagina == _texto(dados[0][1])):
+        return dados
+    if any(linha and _texto(linha[0]) for linha in dados[1:]):
+        return dados
+    return [linha[1:] for linha in dados]
+
+
 def _secao_aberta_no_fim(texto_da_pagina):
     """Seção cujo título ficou no fim da página sem a legenda embaixo."""
     aberta = None
@@ -932,6 +958,7 @@ def ler_pdf(arquivo, avisos):
                 # de página empurrou para cá. Já aconteceu de a seção
                 # inteira estar do outro lado da quebra, com só o cabeçalho
                 # sobrando na página anterior.
+                dados = _desembrulhar_continuacao(dados)
                 if secao_aberta and _parece_continuacao(dados):
                     fragmentos.setdefault(secao_aberta, []).append((dados, 0))
 
@@ -979,7 +1006,9 @@ def ler_pdf(arquivo, avisos):
         # ('NITINITTRANS'); o nome do arquivo é mais confiável.
         unidade = _nome_de_unidade(unidade_do_nome)
     elif not unidade:
-        unidade = unidade_do_nome
+        # Com barra, como na legenda, para a unidade não sair escrita de
+        # dois jeitos na planilha.
+        unidade = unidade_do_nome and _nome_de_unidade(unidade_do_nome)
         if unidade:
             avisos.append((arquivo.name, "a legenda com a unidade não foi"
                                          f" encontrada; usado o nome do"
