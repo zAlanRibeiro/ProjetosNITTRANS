@@ -215,7 +215,18 @@ RE_ROTULO_EMPILHADO = re.compile(
     + r")(\s+|$)")
 RE_TITULO_QUALQUER = re.compile(r"per[ií]odo\s*:$", re.IGNORECASE)
 RE_LEGENDA_QUALQUER = re.compile(r"per[ií]odo\s*\(", re.IGNORECASE)
-RE_CABECALHO_PAGINA = re.compile(r"^(\d{2}/\d{2}/\d{4}, \d{2}:\d{2}|https?://)")
+# Cabeçalho e rodapé que o navegador imprime em toda página. O OCR quebra
+# o endereço do rodapé em várias linhas ('estatisticas unidade&acao
+# origem=...', 'sistema=1000001...'); nome de tipo nunca tem '='.
+RE_CABECALHO_PAGINA = re.compile(
+    r"^(\d{2}/\d{2}/\d{4}, \d{2}:\d{2}|https?://|SEI - Estat[ií]sticas|.*=)")
+# Setas da barra de rolagem que o SEI desenha nas pontas da tabela: vêm como
+# caracteres de uso privado da fonte de ícones, sem significado no texto.
+RE_ICONE = re.compile("[\ue000-\uf8ff]")
+# Linha só com palavras do cabeçalho da tabela, já juntas e sem espaços
+# ('tipo2026', 'tipoquantidade', 'quantidade', 'tipo'). Ver _limpar().
+RE_CABECALHO_JUNTO = re.compile(
+    r"^(tipo)?(quantidade|tempomédio|((19|20)\d{2})+)?$")
 
 # OCR para o PDF sem texto (impresso com 'Microsoft Print to PDF', que
 # grava as letras como desenho). O MuPDF já traz o motor do Tesseract e só
@@ -461,25 +472,71 @@ def _e_linha_de_total(nome):
     return nome.upper().startswith(("TOTAL", "GERAL"))
 
 
+def _so_cabecalho(linha):
+    """Texto da linha, sem espaços, se ela só tem palavras de cabeçalho."""
+    junto = re.sub(r"\s+", "", "".join(_texto(c) for c in linha)).lower()
+    return junto if junto and RE_CABECALHO_JUNTO.match(junto) else None
+
+
+def _limpar(dados):
+    """
+    Tira as setas de rolagem das células e conserta o cabeçalho que o
+    pdfplumber desmonta quando a seta ou a tabela em volta da página mudam
+    as divisões das colunas: palavra partida em colunas ('Ti' | 'po',
+    'Q' | 'uantidade'), 'Tipo' fora da primeira coluna, ou o cabeçalho
+    espalhado em duas linhas seguidas ('Quantidade' numa, 'Tipo' na de
+    baixo). As linhas seguidas só com palavras de cabeçalho viram uma só,
+    com 'Tipo' na primeira coluna, onde ficam os nomes nas linhas de
+    dados, e o ano na coluna em que estava. As outras viram linhas vazias,
+    para a posição de cada linha na página continuar valendo.
+    """
+    dados = [[RE_ICONE.sub("", c) if isinstance(c, str) else c for c in linha]
+             for linha in dados]
+    grupo = []
+    for indice, linha in enumerate(dados + [[]]):
+        if _so_cabecalho(linha):
+            grupo.append(indice)
+            continue
+        junto = "".join(_so_cabecalho(dados[i]) for i in grupo)
+        if "tipo" in junto:
+            largura = max(2, *(len(dados[i]) for i in grupo))
+            cabecalho = ["Tipo"] + [None] * (largura - 1)
+            for i in grupo:
+                for coluna, celula in enumerate(dados[i]):
+                    if coluna and RE_ANO.match(_texto(celula)):
+                        cabecalho[coluna] = _texto(celula)
+            if "quantidade" in junto:
+                cabecalho[1] = "Quantidade"
+            elif "tempomédio" in junto:
+                cabecalho[1] = "Tempo Médio"
+            dados[grupo[0]] = cabecalho
+            for i in grupo[1:]:
+                dados[i] = [None] * len(dados[i])
+        grupo = []
+    return dados
+
+
+def _e_linha_de_mes(linha):
+    """Linha entre o cabeçalho e os dados: vazia ou com o mês na frente."""
+    nome = _texto(linha[0]) if linha else ""
+    return not nome or nome.lower() in MESES
+
+
 def _tem_cabecalho_de_periodo(tabela):
     """
     Cabeçalho 'Tipo' com o ano numa linha e o(s) mês(es) na de baixo — o
     formato das seções de contagem por período. Só nelas dá para ler a
     competência do próprio relatório.
+
+    Basta o cabeçalho e mais uma linha: no topo da página seguinte o
+    navegador repete só o 'Tipo | ano', sem a linha do mês.
     """
-    if len(tabela) < 3:
+    if len(tabela) < 2:
         return False
     cabecalho = [_texto(c) for c in tabela[0]]
     if not cabecalho or cabecalho[0].lower() != "tipo":
         return False
     return any(RE_ANO.match(c) for c in cabecalho)
-
-
-def _tem_cabecalho_tipo(tabela):
-    """A tabela começa com o cabeçalho 'Tipo' — ou seja, não é continuação."""
-    if not tabela or not tabela[0]:
-        return False
-    return _texto(tabela[0][0]).lower() == "tipo"
 
 
 def _parece_continuacao(tabela):
@@ -505,11 +562,13 @@ def _inicio_dos_dados(tabela):
     """
     Em que linha começam os dados, ou None se a tabela não é de contagem.
 
-    O relatório usa dois formatos. As seções por período gastam duas
-    linhas de cabeçalho (ano e mês) e começam na terceira; as de
-    tramitação e andamento vêm como 'Tipo | Quantidade' e começam na
-    segunda. As de tempo médio têm 'Tipo | Tempo Médio' e ficam de fora,
-    porque medem duração, não quantidade.
+    O relatório usa dois formatos. As seções por período têm o ano no
+    cabeçalho e, embaixo, a linha do mês (às vezes com uma linha vazia no
+    meio, e nenhuma das duas no cabeçalho repetido no topo da página
+    seguinte); os dados começam depois delas. As de tramitação e andamento
+    vêm como 'Tipo | Quantidade' e começam na segunda linha. As de tempo
+    médio têm 'Tipo | Tempo Médio' e ficam de fora, porque medem duração,
+    não quantidade.
     """
     if len(tabela) < 2:
         return None
@@ -517,15 +576,22 @@ def _inicio_dos_dados(tabela):
     if not cabecalho or cabecalho[0].lower() != "tipo":
         return None
     if _tem_cabecalho_de_periodo(tabela):
-        return 2
-    if len(cabecalho) > 1 and cabecalho[1].lower() == "quantidade":
+        inicio = 1
+        while inicio < len(tabela) and _e_linha_de_mes(tabela[inicio]):
+            inicio += 1
+        return inicio
+    # Dentro da tabela que o navegador põe em volta da página, as colunas
+    # vazias dela ficam entre 'Tipo' e 'Quantidade'.
+    colunas = [c for c in cabecalho[1:] if c]
+    if colunas and colunas[0].lower() == "quantidade":
         return 1
     return None
 
 
-def _secao_da_tabela(pagina, tabela):
+def _secao_acima(pagina, topo):
     """
-    Descobre a que seção a tabela pertence pelo título logo acima dela.
+    Descobre a que seção a tabela pertence pelo título logo acima do
+    cabeçalho dela, que começa na altura 'topo' da página.
 
     'Documentos gerados' e 'Documentos externos' são idênticas em formato
     — mesmo cabeçalho, mesmo tipo de conteúdo —, então só o texto acima
@@ -538,8 +604,11 @@ def _secao_da_tabela(pagina, tabela):
     parênteses. É o que evita confundir o título de uma com a legenda da
     anterior.
     """
-    topo = max(0, tabela.bbox[1] - ALTURA_TITULO)
-    acima = pagina.crop((0, topo, pagina.width, tabela.bbox[1]))
+    topo = min(topo, pagina.height)
+    faixa = max(0, topo - ALTURA_TITULO)
+    if topo <= faixa:
+        return None
+    acima = pagina.crop((0, faixa, pagina.width, topo))
     texto = re.sub(r"\s+", " ", acima.extract_text() or "")
     for secao, padrao in TITULOS_SECAO.items():
         if padrao.search(texto):
@@ -547,30 +616,46 @@ def _secao_da_tabela(pagina, tabela):
     return None
 
 
-def _desembrulhar(dados):
+def _pedacos(dados):
     """
-    Tira a tabela de dentro da que o navegador às vezes põe em volta da
-    página inteira. Aí a primeira linha é o texto da página até a tabela,
-    com o resto das seções anteriores, e o cabeçalho 'Tipo' vem logo
-    depois; o título da tabela é o último que ficou sem legenda. No fim,
-    depois da legenda, sobram pedaços das seções seguintes, que são
-    cortados.
+    Divide a tabela do pdfplumber nas tabelas do relatório que ela traz.
 
-    Devolve (seção pelo título embutido, dados), ou (None, dados) intactos
-    quando a tabela não está embrulhada.
+    Quase sempre é uma só. Mas quando o navegador põe uma tabela em volta
+    da página inteira, as do relatório vêm empilhadas dentro dela, cada
+    uma com o seu cabeçalho 'Tipo', entremeadas de linhas que são o texto
+    da página (a legenda, o título da seguinte, às vezes a página toda
+    numa célula só). Cada cabeçalho abre um pedaço, e o TOTAL, a legenda
+    ou o título da seção seguinte o fecham; o que fica entre um pedaço e o
+    cabeçalho seguinte é descartado. As linhas antes do primeiro cabeçalho
+    formam um pedaço sem cabeçalho: o resto de uma tabela que veio da
+    página anterior.
+
+    Legenda e título contam só no começo da célula, que é onde ela está na
+    página: a célula com a página inteira traz no meio as legendas de
+    tabelas que ainda vêm depois.
+
+    Devolve [(índice da linha do cabeçalho ou None, linhas, fechado)].
     """
-    if _tem_cabecalho_tipo(dados) or len(dados) < 2:
-        return None, dados
-    inicio = next((i for i in (1, 2) if _tem_cabecalho_tipo(dados[i:])), None)
-    if inicio is None or not dados[0]:
-        return None, dados
-    secao = _secao_aberta_no_fim(dados[0][0])
-    if secao is None:
-        return None, dados
-    fim = next((i for i in range(inicio, len(dados))
-                if dados[i] and RE_LEGENDA_QUALQUER.search(_texto(dados[i][0]))),
-               len(dados))
-    return secao, dados[inicio:fim]
+    pedacos = [(None, [], False)]
+    for indice, linha in enumerate(dados):
+        nome = _texto(linha[0]) if linha else ""
+        if nome.lower() == "tipo":
+            pedacos.append((indice, [linha], False))
+            continue
+        cabecalho, linhas, fechado = pedacos[-1]
+        if fechado:
+            continue
+        inicios = [_texto((str(c or "").strip().splitlines() or [""])[0])
+                   for c in linha]
+        if _e_linha_de_total(nome):
+            linhas.append(linha)
+            pedacos[-1] = (cabecalho, linhas, True)
+        elif any(RE_LEGENDA_QUALQUER.search(t) or RE_TITULO_QUALQUER.search(t)
+                 for t in inicios):
+            pedacos[-1] = (cabecalho, linhas, True)
+        else:
+            linhas.append(linha)
+    return pedacos
 
 
 def _desembrulhar_continuacao(dados):
@@ -599,9 +684,12 @@ def _desembrulhar_continuacao(dados):
     return [linha[1:] for linha in dados]
 
 
-def _secao_aberta_no_fim(texto_da_pagina):
-    """Seção cujo título ficou no fim da página sem a legenda embaixo."""
-    aberta = None
+def _secao_aberta_no_fim(texto_da_pagina, aberta=None):
+    """
+    Seção cujo título ficou no fim da página sem a legenda embaixo. Página
+    sem título nem legenda (só o meio de uma tabela comprida) deixa aberta a
+    que já vinha aberta.
+    """
     for linha in (texto_da_pagina or "").splitlines():
         linha = _texto(linha)
         if RE_TITULO_QUALQUER.search(linha):
@@ -625,8 +713,10 @@ def _ler_itens(pedacos, arquivo, avisos):
                 continue
             nome = _texto(linha[0])
             # Descarta a linha final de glifos de navegação da página, que
-            # não tem letra nem número nenhum.
-            if not nome or not RE_TEM_CONTEUDO.search(nome):
+            # não tem letra nem número nenhum, e o endereço do rodapé que às
+            # vezes cai dentro da tabela.
+            if (not nome or not RE_TEM_CONTEUDO.search(nome)
+                    or "://" in nome):
                 continue
             if _e_linha_de_total(nome):
                 total = _valor(linha)
@@ -762,7 +852,14 @@ def _linhas_do_ocr(palavras, largura):
         else:
             tipo = "nome"
         pedacos.append((centro, x0, tipo, texto))
-    pedacos.sort()
+
+    # Onde começam os nomes. O TOTAL fica bem à direita disso; medir da
+    # beirada da página não serve, porque a margem muda conforme a
+    # impressão (os nomes já vieram em x=3 e em x=32). Número na coluna dos
+    # nomes é a seta de rolagem da tabela ('«') lida como '4'.
+    esquerda = min((p[1] for p in pedacos if p[2] == "nome"), default=0)
+    pedacos = sorted(p for p in pedacos if p[2] != "numero"
+                     or p[1] > esquerda + largura * 0.05)
 
     # Agrupa em linhas da tabela pela altura.
     linhas = []
@@ -801,7 +898,7 @@ def _linhas_do_ocr(palavras, largura):
             saida += [p[3] for p in sorted(linha, key=lambda p: p[1])]
             continue
         nomes = [p for p in linha if p[2] == "nome"]
-        if nomes and min(p[1] for p in nomes) > largura * 0.05:
+        if nomes and min(p[1] for p in nomes) > esquerda + largura * 0.05:
             nome = "TOTAL:"
         else:
             partes = [linhas[j] for j in sorted(
@@ -836,11 +933,11 @@ def _texto_por_ocr(arquivo):
 
 def _competencia_do_cabecalho(tabela):
     """
-    Monta a competência ('2026-07') a partir das duas linhas de cabeçalho:
-    a primeira traz o ano, a segunda os meses. Num relatório de mais de um
-    mês vêm vários, e cada mês fica sob o ano da coluna correspondente.
+    Monta a competência ('2026-07') a partir das linhas de cabeçalho: a
+    primeira traz o ano, a(s) de baixo os meses. Num relatório de mais de
+    um mês vêm vários, e cada mês fica sob o ano da coluna correspondente.
     """
-    linha_ano, linha_mes = tabela[0], tabela[1]
+    linha_ano = tabela[0]
 
     anos = {i: _texto(c) for i, c in enumerate(linha_ano)
             if RE_ANO.match(_texto(c))}
@@ -852,10 +949,11 @@ def _competencia_do_cabecalho(tabela):
         return anos[max(anteriores)] if anteriores else anos[min(anos)]
 
     competencias = []
-    for indice, celula in enumerate(linha_mes):
-        mes = MESES.get(_texto(celula)[:3].lower())
-        if mes:
-            competencias.append(f"{ano_da_coluna(indice)}-{mes}")
+    for linha_mes in tabela[1:_inicio_dos_dados(tabela)]:
+        for indice, celula in enumerate(linha_mes):
+            mes = MESES.get(_texto(celula)[:3].lower())
+            if mes:
+                competencias.append(f"{ano_da_coluna(indice)}-{mes}")
     return sorted(set(competencias))
 
 
@@ -903,6 +1001,39 @@ def _mesma_unidade(uma, outra):
     return _chave_unidade(uma) == _chave_unidade(outra)
 
 
+def _guardar_pedaco(pagina, topo, linhas, secao_aberta, fragmentos, arquivo,
+                    numero, avisos):
+    """
+    Guarda em 'fragmentos' o pedaço de tabela que começa com cabeçalho
+    'Tipo' na altura 'topo' da página. Devolve a seção que fica aberta
+    para a continuação dele.
+    """
+    inicio = _inicio_dos_dados(linhas)
+    if inicio is None:
+        # Tempos médios: não interessa, mas encerra a seção anterior, senão
+        # a continuação dela entraria na seção de cima.
+        return None
+    secao = _secao_acima(pagina, topo)
+    if secao is None:
+        # Sem título em cima: é o cabeçalho que o navegador repete no topo
+        # da página quando a tabela não coube na anterior, ou a tabela cujo
+        # título ficou sozinho no fim dela. Nos dois casos, é da seção que
+        # ficou aberta.
+        if secao_aberta:
+            fragmentos.setdefault(secao_aberta, []).append((linhas, inicio))
+        else:
+            avisos.append((arquivo.name, f"tabela sem título na página"
+                                         f" {numero} ficou de fora"))
+        return secao_aberta
+    if secao in fragmentos:
+        avisos.append((arquivo.name, f"a seção '{NOME_SECAO[secao]}'"
+                                     " apareceu mais de uma vez — só a"
+                                     " primeira foi usada"))
+        return None
+    fragmentos[secao] = [(linhas, inicio)]
+    return secao
+
+
 def ler_pdf(arquivo, avisos):
     """
     Extrai de um PDF a unidade, a competência e as três seções de contagem
@@ -930,43 +1061,29 @@ def ler_pdf(arquivo, avisos):
                 paginas_sem_texto.append(numero)
 
             for tabela in pagina.find_tables():
-                secao_embrulhada, dados = _desembrulhar(tabela.extract())
-
-                if _tem_cabecalho_tipo(dados):
-                    achou_cabecalho = True
-                    inicio = _inicio_dos_dados(dados)
-                    secao = ((secao_embrulhada
-                              or _secao_da_tabela(pagina, tabela))
-                             if inicio is not None else None)
-                    # Toda tabela com cabeçalho encerra a anterior, mesmo
-                    # sendo de uma seção que não interessa (tempos médios):
-                    # senão a continuação dela entraria na seção de cima.
-                    secao_aberta = secao
-                    if secao is None:
-                        continue
-                    if secao in fragmentos:
-                        avisos.append((arquivo.name,
-                                       f"a seção '{NOME_SECAO[secao]}'"
-                                       " apareceu mais de uma vez — só a"
-                                       " primeira foi usada"))
+                dados = _desembrulhar_continuacao(_limpar(tabela.extract()))
+                for cabecalho, linhas, fechado in _pedacos(dados):
+                    if cabecalho is None:
+                        # Sem cabeçalho: é o resto da tabela anterior, que a
+                        # quebra de página empurrou para cá. Já aconteceu de
+                        # a seção inteira estar do outro lado da quebra, com
+                        # só o cabeçalho sobrando na página anterior.
+                        if secao_aberta and _parece_continuacao(linhas):
+                            fragmentos.setdefault(secao_aberta, []).append(
+                                (linhas, 0))
+                    else:
+                        achou_cabecalho = True
+                        secao_aberta = _guardar_pedaco(
+                            pagina, tabela.rows[cabecalho].bbox[1], linhas,
+                            secao_aberta, fragmentos, arquivo, numero, avisos)
+                    if fechado:
                         secao_aberta = None
-                        continue
-                    fragmentos[secao] = [(dados, inicio)]
-                    continue
-
-                # Sem cabeçalho: é o resto da tabela anterior, que a quebra
-                # de página empurrou para cá. Já aconteceu de a seção
-                # inteira estar do outro lado da quebra, com só o cabeçalho
-                # sobrando na página anterior.
-                dados = _desembrulhar_continuacao(dados)
-                if secao_aberta and _parece_continuacao(dados):
-                    fragmentos.setdefault(secao_aberta, []).append((dados, 0))
 
             # A página que termina num título sem a legenda embaixo deixa
             # essa seção aberta para a próxima, mesmo quando o cabeçalho
             # dela não virou tabela própria (veio dentro da tabela que o
             # navegador põe em volta da página).
-            secao_aberta = _secao_aberta_no_fim(conteudo) or secao_aberta
+            secao_aberta = _secao_aberta_no_fim(conteudo, secao_aberta)
 
     if paginas_sem_texto:
         avisos.append((arquivo.name,
@@ -1043,7 +1160,15 @@ def ler_pdf(arquivo, avisos):
     for secao, (itens, total_declarado) in secoes.items():
         lidas[secao] = itens
         soma = sum(itens.values())
-        if total_declarado is not None and total_declarado != soma:
+        if itens and total_declarado is None:
+            # O SEI sempre fecha a tabela com o TOTAL. Sem ele, o pedaço
+            # final da tabela não foi lido, ou nem saiu no PDF (a caixa de
+            # rolagem do SEI às vezes corta a tabela na impressão).
+            avisos.append((arquivo.name,
+                           f"em '{NOME_SECAO[secao]}', a linha TOTAL não"
+                           " foi encontrada — a tabela pode ter saído"
+                           " cortada no PDF; conferir"))
+        elif total_declarado is not None and total_declarado != soma:
             avisos.append((arquivo.name,
                            f"em '{NOME_SECAO[secao]}', a soma dos tipos"
                            f" ({soma}) não bate com o TOTAL do PDF"
