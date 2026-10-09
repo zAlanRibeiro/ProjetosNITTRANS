@@ -88,6 +88,13 @@ DICAS = {
         " pronta para tabela dinâmica. Enquanto a biblioteca não estiver"
         " sincronizada, dá para escolher os PDFs à mão. Não gera gráfico."
     ),
+    "diarioOficial.py": (
+        "Baixa o Diário Oficial de Niterói do ano atual e junta as portarias"
+        " da NITTRANS numa planilha: Data, Portaria, Página (com link para o"
+        " PDF) e Conteúdo. Não pede arquivo. Se a planilha do ano já existe,"
+        " só acrescenta o que saiu depois da última data dela, sem mexer no"
+        " resto. A primeira vez demora uns 10 minutos."
+    ),
     "bloquear_planilha": (
         "Aplica proteção total com senha."
     ),
@@ -324,13 +331,19 @@ class HubApp(ctk.CTk):
             "estatisticasSEI.py",
             "normal",
         ),
+        (
+            "12. Diário Oficial NITTRANS",
+            "DiarioOficial",
+            "diarioOficial.py",
+            "normal",
+        ),
     ]
 
-    # O espaçamento acompanha a quantidade de ferramentas: com 11 botões o
-    # passo de 48 invadia o separador da área de Segurança, logo abaixo.
+    # O espaçamento acompanha a quantidade de ferramentas: com 12 botões o
+    # passo de 45 invadia o separador da área de Segurança, logo abaixo.
     start_y = 170
     for i, (nome, pasta, script, estado) in enumerate(tools):
-      y_pos = start_y + (i * 45)
+      y_pos = start_y + (i * 41)
       self._criar_botao_flutuante(nome, pasta, script, y_pos, estado)
 
     # ── Área de Segurança ─────────────────────────────────────────────────
@@ -347,7 +360,7 @@ class HubApp(ctk.CTk):
 
     btn_c = ctk.CTkButton(
         self,
-        text="  12. Criptografar Arquivos",
+        text="  13. Criptografar Arquivos",
         anchor="w",
         height=40,
         width=420,
@@ -364,7 +377,7 @@ class HubApp(ctk.CTk):
 
     btn_t = ctk.CTkButton(
         self,
-        text="  13. Tarjar PDF",
+        text="  14. Tarjar PDF",
         anchor="w",
         height=40,
         width=420,
@@ -381,7 +394,7 @@ class HubApp(ctk.CTk):
 
     btn_b = ctk.CTkButton(
         self,
-        text="  14. Bloquear Planilha",
+        text="  15. Bloquear Planilha",
         anchor="w",
         height=40,
         width=420,
@@ -456,7 +469,7 @@ class HubApp(ctk.CTk):
         self,
         text=f"  {nome}",
         anchor="w",
-        height=42,
+        height=38,
         width=370,
         corner_radius=10,
         font=(FONTE, 13, "bold"),
@@ -475,7 +488,7 @@ class HubApp(ctk.CTk):
         self,
         text="📁",
         width=42,
-        height=42,
+        height=38,
         corner_radius=10,
         fg_color="transparent",
         bg_color=COR_VIDRO_BLENDED,

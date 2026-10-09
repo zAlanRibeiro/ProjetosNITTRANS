@@ -21,6 +21,7 @@ from RemovedorDuplicadasDetran.removerDuplicada import mesclar_arquivos_excel as
 from EstatisticasSEIAtual.sei_estatisticas import rodar_sei_estatisticas as _fn_sei
 from EstatisticasSEINovo.estatisticasSEI import rodar_estatisticas_sei as _fn_sei_novo
 from BloquearPlanilha.bloqueador import rodar_bloqueio as _fn_bloqueio
+from DiarioOficial.diarioOficial import rodar_diario_oficial as _fn_diario_oficial
 
 # Ferramentas que aceitam vários arquivos de uma vez:
 #   nome do script -> (título da janela, tipos de arquivo)
@@ -53,6 +54,9 @@ SELECAO_MULTIPLA = {
 # Estatísticas SEI (Novo) não entra aqui: ela abre a própria janela de
 # competência (EstatisticasSEINovo/seletor.py), que já traz a seleção
 # manual de PDFs como alternativa.
+
+# Ferramentas que baixam os próprios dados: não abrem caixa de seleção.
+SEM_ARQUIVO_DE_ENTRADA = {"diarioOficial.py"}
 
 
 def _destino_livre(caminho):
@@ -104,7 +108,9 @@ class GerenciadorProcessos:
         arquivos_para_copiar = []
 
         # 1. Abre a janela de seleção de arquivos (Múltipla ou Única)
-        if arquivos is not None:
+        if nome_do_arquivo in SEM_ARQUIVO_DE_ENTRADA:
+            pass
+        elif arquivos is not None:
             arquivos_para_copiar = list(arquivos)
             if not arquivos_para_copiar:
                 return
@@ -274,4 +280,5 @@ FERRAMENTAS = {
     "sei_estatisticas":         _fn_sei,
     "estatisticasSEI.py":       _fn_sei_novo,
     "removerDuplicada.py":      _fn_remover_duplicadas,
+    "diarioOficial.py":         _fn_diario_oficial,
 }

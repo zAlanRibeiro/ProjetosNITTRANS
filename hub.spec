@@ -47,6 +47,7 @@ a = Analysis(
         'EstatisticasSEINovo.estatisticasSEI',
         'EstatisticasSEINovo.seletor',
         'BloquearPlanilha.bloqueador',
+        'DiarioOficial.diarioOficial',
         'Criptografia.gui',
         'Criptografia.crypto',
         'Criptografia.html_builder',
