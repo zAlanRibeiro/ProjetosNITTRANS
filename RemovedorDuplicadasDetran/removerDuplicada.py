@@ -1,7 +1,10 @@
 import pandas as pd
 import os
 import sys
-import gc 
+import gc
+
+# Limite de linhas de uma aba do Excel, já descontado o cabeçalho
+LINHAS_POR_ABA = 1_048_575
 
 def obter_diretorio_base():
     if getattr(sys, 'frozen', False):
@@ -41,11 +44,12 @@ def mesclar_arquivos_excel():
     for arquivo in arquivos:
         print(f"Lendo e cruzando arquivo: {os.path.basename(arquivo)}...")
         
-        # 1. Lê apenas UM arquivo por vez
+        # 1. Lê apenas UM arquivo por vez, tudo como texto: senão Renavam e
+        # CPF/CNPJ viram número e perdem os zeros à esquerda
         if arquivo.endswith('.csv'):
-            df_temp = pd.read_csv(arquivo, sep=';', encoding='utf-8-sig', low_memory=False)
+            df_temp = pd.read_csv(arquivo, sep=';', encoding='utf-8-sig', dtype=str)
         else:
-            df_temp = pd.read_excel(arquivo)
+            df_temp = pd.read_excel(arquivo, dtype=str)
         
         # 2. Junta o arquivo novo com a base acumulada
         df_consolidado = pd.concat([df_consolidado, df_temp], ignore_index=True)
@@ -58,11 +62,16 @@ def mesclar_arquivos_excel():
         gc.collect()
 
     if not df_consolidado.empty:
-        print("Salvando arquivo final em formato CSV...")
+        print("Salvando arquivo final em Excel...")
         caminho_salvar = caminho_livre(
-            os.path.join(pasta_resultados, "Estatisticas_Niteroi_Consolidado.csv")
+            os.path.join(pasta_resultados, "Estatisticas_Niteroi_Consolidado.xlsx")
         )
-        df_consolidado.to_csv(caminho_salvar, index=False, sep=';', encoding='utf-8-sig') 
+        # Excel e não CSV: ao abrir um CSV o Excel converte Renavam e CPF/CNPJ
+        # em número e some com os zeros. O que passar de uma aba vai para a próxima.
+        with pd.ExcelWriter(caminho_salvar) as writer:
+            for inicio in range(0, len(df_consolidado), LINHAS_POR_ABA):
+                df_consolidado.iloc[inicio:inicio + LINHAS_POR_ABA].to_excel(
+                    writer, sheet_name=f"Dados {inicio // LINHAS_POR_ABA + 1}", index=False)
         print(f"Sucesso! Arquivo final salvo: {os.path.basename(caminho_salvar)}")
     else:
         raise ValueError("Nenhum dado válido para mesclar.")

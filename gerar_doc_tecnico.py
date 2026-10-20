@@ -480,8 +480,9 @@ d.marcadores([
 ])
 d.h5('Saída gerada')
 d.corpo(
-    'Estatisticas_Niteroi_Consolidado.csv — CSV com separador ponto-e-vírgula e encoding '
-    'utf-8-sig, que abre diretamente no Excel com os acentos corretos.'
+    'Estatisticas_Niteroi_Consolidado.xlsx — todas as colunas gravadas como texto, para que '
+    'Renavam e CPF/CNPJ mantenham os zeros à esquerda. Acima de 1.048.575 linhas, os dados '
+    'continuam nas abas seguintes (Dados 1, Dados 2...).'
 )
 
 # ── 4.9 ──────────────────────────────────────────────────────────────────────
