@@ -108,7 +108,7 @@ ARQUIVO_CONFIG = "config.json"
 # não aponta unidade nenhuma por si só.
 # Ao criar ou extinguir unidade no SEI, atualizar aqui.
 UNIDADES_NITTRANS = (
-    "NIT-NITTRANS-DEPGM",
+    "NIT-NITTRANS-COORGM",
     "NIT-NITTRANS-DIVEST",
     "NIT-NITTRANS-DEPCS",
     "NIT-NITTRANS-COORJUR",
